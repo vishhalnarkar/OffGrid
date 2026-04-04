@@ -38,15 +38,15 @@ The application follows a **strict 5-layer architecture**:
 
 ```
 ┌─────────────────────────────────────────────┐
-│           UI Layer (Flutter)                 │
+│           UI Layer (Flutter)                │
 ├─────────────────────────────────────────────┤
-│        State Management (Riverpod)           │
+│        State Management (Riverpod)          │
 ├─────────────────────────────────────────────┤
-│        Mesh Router & Deduplication           │
+│        Mesh Router & Deduplication          │
 ├─────────────────────────────────────────────┤
-│      BLE Transport (flutter_blue_plus)       │
+│      BLE Transport (flutter_blue_plus)      │
 ├─────────────────────────────────────────────┤
-│      Local Database (SQLite via sqflite)     │
+│      Local Database (SQLite via sqflite)    │
 └─────────────────────────────────────────────┘
 ```
 
