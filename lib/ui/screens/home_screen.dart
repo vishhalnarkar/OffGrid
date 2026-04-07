@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
 
-import '../../data/peer_dao.dart';
-import '../../models/peer.dart';
+import '../../data/chat_dao.dart';
+import '../../data/message_dao.dart';
+import '../../models/message.dart';
 
 /// Home screen shown after onboarding.
 /// Displays welcome message with the user's display name and ID.
@@ -67,22 +69,88 @@ class HomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 32),
 
-                // TEST: Temporary database test button (to be removed after Phase 2 verification)
+                // TEST 2: Deterministic Chat ID test button
                 ElevatedButton(
                   onPressed: () async {
-                    final dao = PeerDao();
-                    await dao.upsertPeer(
-                      Peer(id: 'abc123', displayName: 'Test'),
+                    final chatDao = ChatDao();
+
+                    // First call: alice → bob
+                    final chat1 = await chatDao.getOrCreateDirectChat(
+                      'alice_id_12345',
+                      'bob_id_67890',
                     );
-                    final peers = await dao.getAllPeers();
-                    debugPrint(
-                      'Peers in DB: ${peers.length}',
-                    ); // should print 1
-                    debugPrint(
-                      'Name: ${peers.first.displayName}',
-                    ); // should print Test
+                    debugPrint('Chat 1 ID: ${chat1.id}');
+
+                    // Second call: bob → alice (reversed order)
+                    final chat2 = await chatDao.getOrCreateDirectChat(
+                      'bob_id_67890',
+                      'alice_id_12345',
+                    );
+                    debugPrint('Chat 2 ID: ${chat2.id}');
+
+                    // Check if IDs match
+                    if (chat1.id == chat2.id) {
+                      debugPrint('✅ DETERMINISTIC ID TEST PASSED');
+                    } else {
+                      debugPrint('❌ DETERMINISTIC ID TEST FAILED');
+                    }
                   },
-                  child: const Text('Test DB'),
+                  child: const Text('Test Deterministic Chat ID'),
+                ),
+                const SizedBox(height: 16),
+
+                // TEST 3: Message Index & Query Performance test button
+                ElevatedButton(
+                  onPressed: () async {
+                    final chatDao = ChatDao();
+                    final msgDao = MessageDao();
+                    const uuid = Uuid();
+
+                    // Create a test chat
+                    final chat = await chatDao.getOrCreateDirectChat(
+                      'me',
+                      'friend',
+                    );
+
+                    // Insert 100 messages
+                    final sw = Stopwatch()..start();
+                    final baseTime = DateTime.now().millisecondsSinceEpoch;
+                    for (int i = 0; i < 100; i++) {
+                      await msgDao.insertMessage(
+                        Message(
+                          id: uuid.v4(),
+                          chatId: chat.id,
+                          senderId: 'me',
+                          content: 'Test message $i',
+                          status: 'sent',
+                          createdAt: baseTime + i,
+                        ),
+                      );
+                    }
+                    sw.stop();
+                    debugPrint(
+                      'Inserted 100 messages in ${sw.elapsedMilliseconds}ms',
+                    );
+
+                    // Query them back (with limit: 100 to fetch all inserted messages)
+                    final sw2 = Stopwatch()..start();
+                    final messages = await msgDao.getMessagesForChat(
+                      chat.id,
+                      limit: 100,
+                    );
+                    sw2.stop();
+                    debugPrint(
+                      'Queried ${messages.length} messages in ${sw2.elapsedMilliseconds}ms',
+                    );
+
+                    if (messages.length == 100 &&
+                        sw2.elapsedMilliseconds < 100) {
+                      debugPrint('✅ MESSAGE INDEX TEST PASSED');
+                    } else {
+                      debugPrint('❌ MESSAGE INDEX TEST FAILED');
+                    }
+                  },
+                  child: const Text('Test Message Index'),
                 ),
               ],
             ),
