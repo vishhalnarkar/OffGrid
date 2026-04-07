@@ -17,21 +17,23 @@ class Peer {
   });
 
   /// Convert Peer to Map for JSON serialization or database storage
+  /// Uses snake_case keys to match SQLite schema
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'displayName': displayName,
-      'lastSeenAt': lastSeenAt,
+      'display_name': displayName,
+      'last_seen_at': lastSeenAt,
       'rssi': rssi,
     };
   }
 
   /// Create Peer from Map (database or JSON)
+  /// Converts from snake_case database keys to camelCase model fields
   factory Peer.fromMap(Map<String, dynamic> map) {
     return Peer(
       id: map['id'] as String,
-      displayName: map['displayName'] as String,
-      lastSeenAt: map['lastSeenAt'] as int?,
+      displayName: map['display_name'] as String,
+      lastSeenAt: map['last_seen_at'] as int?,
       rssi: map['rssi'] as int?,
     );
   }

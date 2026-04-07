@@ -19,18 +19,20 @@ class Chat {
   });
 
   /// Convert Chat to Map for JSON serialization or database storage
+  /// Uses snake_case keys to match SQLite schema
   /// memberIds is encoded as JSON string
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'type': type,
       'name': name,
-      'memberIds': jsonEncode(memberIds), // Encode list as JSON string
-      'lastMessageAt': lastMessageAt,
+      'member_ids': jsonEncode(memberIds), // Encode list as JSON string
+      'last_message_at': lastMessageAt,
     };
   }
 
   /// Create Chat from Map (database or JSON)
+  /// Converts from snake_case database keys to camelCase model fields
   /// memberIds is decoded from JSON string
   factory Chat.fromMap(Map<String, dynamic> map) {
     return Chat(
@@ -38,9 +40,9 @@ class Chat {
       type: map['type'] as String,
       name: map['name'] as String?,
       memberIds: List<String>.from(
-        jsonDecode(map['memberIds'] as String) as List<dynamic>,
+        jsonDecode(map['member_ids'] as String) as List<dynamic>,
       ),
-      lastMessageAt: map['lastMessageAt'] as int?,
+      lastMessageAt: map['last_message_at'] as int?,
     );
   }
 

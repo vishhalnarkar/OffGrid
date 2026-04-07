@@ -21,26 +21,28 @@ class Message {
   });
 
   /// Convert Message to Map for JSON serialization or database storage
+  /// Uses snake_case keys to match SQLite schema
   Map<String, dynamic> toMap() {
     return {
       'id': id,
-      'chatId': chatId,
-      'senderId': senderId,
+      'chat_id': chatId,
+      'sender_id': senderId,
       'content': content,
       'status': status,
-      'createdAt': createdAt,
+      'created_at': createdAt,
     };
   }
 
   /// Create Message from Map (database or JSON)
+  /// Converts from snake_case database keys to camelCase model fields
   factory Message.fromMap(Map<String, dynamic> map) {
     return Message(
       id: map['id'] as String,
-      chatId: map['chatId'] as String,
-      senderId: map['senderId'] as String,
+      chatId: map['chat_id'] as String,
+      senderId: map['sender_id'] as String,
       content: map['content'] as String,
       status: map['status'] as String,
-      createdAt: map['createdAt'] as int,
+      createdAt: map['created_at'] as int,
     );
   }
 

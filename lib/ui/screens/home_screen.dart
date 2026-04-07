@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../data/peer_dao.dart';
+import '../../models/peer.dart';
+
 /// Home screen shown after onboarding.
 /// Displays welcome message with the user's display name and ID.
 class HomeScreen extends StatelessWidget {
@@ -61,6 +64,25 @@ class HomeScreen extends StatelessWidget {
                 const Text(
                   'Phases coming soon...',
                   style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+                const SizedBox(height: 32),
+
+                // TEST: Temporary database test button (to be removed after Phase 2 verification)
+                ElevatedButton(
+                  onPressed: () async {
+                    final dao = PeerDao();
+                    await dao.upsertPeer(
+                      Peer(id: 'abc123', displayName: 'Test'),
+                    );
+                    final peers = await dao.getAllPeers();
+                    debugPrint(
+                      'Peers in DB: ${peers.length}',
+                    ); // should print 1
+                    debugPrint(
+                      'Name: ${peers.first.displayName}',
+                    ); // should print Test
+                  },
+                  child: const Text('Test DB'),
                 ),
               ],
             ),
