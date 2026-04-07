@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 /// Represents a single packet in the OffGrid mesh network.
@@ -38,7 +39,7 @@ class Packet {
     required String chatId,
     required String text,
   }) {
-    return Packet(
+    final packet = Packet(
       id: const Uuid().v4(),
       type: 'chat',
       from: from,
@@ -47,6 +48,8 @@ class Packet {
       timestamp: DateTime.now().millisecondsSinceEpoch,
       payload: {'chatId': chatId, 'text': text},
     );
+    debugPrint('[Packet] Created chat packet: ${packet.id} from=$from to=$to');
+    return packet;
   }
 
   /// Factory constructor for ACK (acknowledgement) packets
@@ -56,7 +59,7 @@ class Packet {
     required String to,
     required String originalId,
   }) {
-    return Packet(
+    final packet = Packet(
       id: const Uuid().v4(),
       type: 'ack',
       from: from,
@@ -65,6 +68,10 @@ class Packet {
       timestamp: DateTime.now().millisecondsSinceEpoch,
       payload: {'originalId': originalId},
     );
+    debugPrint(
+      '[Packet] Created ACK packet: ${packet.id} for original=$originalId',
+    );
+    return packet;
   }
 
   /// Factory constructor for discovery packets
@@ -73,7 +80,7 @@ class Packet {
     required String from,
     required String displayName,
   }) {
-    return Packet(
+    final packet = Packet(
       id: const Uuid().v4(),
       type: 'discovery',
       from: from,
@@ -82,6 +89,10 @@ class Packet {
       timestamp: DateTime.now().millisecondsSinceEpoch,
       payload: {'displayName': displayName},
     );
+    debugPrint(
+      '[Packet] Created discovery packet: ${packet.id} display=$displayName',
+    );
+    return packet;
   }
 
   /// Create a copy of this packet with TTL decremented by 1
@@ -110,24 +121,36 @@ class Packet {
       'timestamp': timestamp,
       'payload': payload,
     };
-    return utf8.encode(jsonEncode(map));
+    final bytes = utf8.encode(jsonEncode(map));
+    debugPrint('[Packet] Encoded $type packet to ${bytes.length} bytes');
+    return bytes;
   }
 
   /// Reconstruct a packet from bytes received over BLE
   /// Throws exceptions if the data is malformed
   factory Packet.fromBytes(List<int> bytes) {
-    final jsonString = utf8.decode(bytes);
-    final map = jsonDecode(jsonString) as Map<String, dynamic>;
+    try {
+      debugPrint('[Packet] Decoding ${bytes.length} bytes...');
+      final jsonString = utf8.decode(bytes);
+      final map = jsonDecode(jsonString) as Map<String, dynamic>;
 
-    return Packet(
-      id: map['id'] as String,
-      type: map['type'] as String,
-      from: map['from'] as String,
-      to: map['to'] as String,
-      ttl: map['ttl'] as int,
-      timestamp: map['timestamp'] as int,
-      payload: map['payload'] as Map<String, dynamic>,
-    );
+      final packet = Packet(
+        id: map['id'] as String,
+        type: map['type'] as String,
+        from: map['from'] as String,
+        to: map['to'] as String,
+        ttl: map['ttl'] as int,
+        timestamp: map['timestamp'] as int,
+        payload: map['payload'] as Map<String, dynamic>,
+      );
+      debugPrint(
+        '[Packet] Successfully decoded ${packet.type} packet from ${packet.from}',
+      );
+      return packet;
+    } catch (e) {
+      debugPrint('[Packet] ERROR decoding packet: $e');
+      rethrow;
+    }
   }
 
   @override
