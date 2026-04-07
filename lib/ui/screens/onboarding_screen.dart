@@ -99,6 +99,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       // Compute myId
       final myId = _computeMyId(pubKeyBytes);
 
+      // DEBUG: Check myId length (must be exactly 64 characters)
+      debugPrint('Full myId: $myId');
+      debugPrint('myId length: ${myId.length}');
+
       // Store keys in FlutterSecureStorage
       const storage = FlutterSecureStorage();
       await storage.write(key: 'publicKey', value: base64.encode(pubKeyBytes));

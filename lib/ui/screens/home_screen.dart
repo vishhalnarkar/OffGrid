@@ -28,6 +28,12 @@ class HomeScreen extends StatelessWidget {
 
           final displayName = prefs.getString('displayName') ?? 'Unknown';
           final myId = prefs.getString('myId') ?? '';
+
+          // DEBUG: Print myId info every time HomeScreen opens
+          debugPrint('=== OffGrid HomeScreen Opened ===');
+          debugPrint('Full myId: $myId');
+          debugPrint('myId length: ${myId.length}');
+
           // Show first 8 characters of myId, followed by ellipsis
           final displayId = myId.length > 8
               ? '${myId.substring(0, 8)}...'
