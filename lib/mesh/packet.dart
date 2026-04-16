@@ -134,6 +134,29 @@ class Packet {
       final jsonString = utf8.decode(bytes);
       final map = jsonDecode(jsonString) as Map<String, dynamic>;
 
+      // Validate required fields exist and have correct types
+      if (!map.containsKey('id') || map['id'] is! String) {
+        throw const FormatException('Missing or invalid "id" field');
+      }
+      if (!map.containsKey('type') || map['type'] is! String) {
+        throw const FormatException('Missing or invalid "type" field');
+      }
+      if (!map.containsKey('from') || map['from'] is! String) {
+        throw const FormatException('Missing or invalid "from" field');
+      }
+      if (!map.containsKey('to') || map['to'] is! String) {
+        throw const FormatException('Missing or invalid "to" field');
+      }
+      if (!map.containsKey('ttl') || map['ttl'] is! int) {
+        throw const FormatException('Missing or invalid "ttl" field');
+      }
+      if (!map.containsKey('timestamp') || map['timestamp'] is! int) {
+        throw const FormatException('Missing or invalid "timestamp" field');
+      }
+      if (!map.containsKey('payload') || map['payload'] is! Map) {
+        throw const FormatException('Missing or invalid "payload" field');
+      }
+
       final packet = Packet(
         id: map['id'] as String,
         type: map['type'] as String,

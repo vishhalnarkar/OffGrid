@@ -85,12 +85,45 @@ class _BleTestWidget extends StatefulWidget {
 }
 
 class _BleTestWidgetState extends State<_BleTestWidget> {
-  final BleTransport _ble = BleTransport();
+  late BleTransport _ble;
   final List<String> _packetLog = [];
   int _connectedPeersCount = 0;
+  List<String> _peersList = [];
+  String? _selectedPeerId;
   bool _bleStarted = false;
   StreamSubscription? _packetSubscription;
   Timer? _statsTimer;
+  String _myId = ''; // Mesh ID (SHA-256 hash for internal use)
+  String _deviceName =
+      ''; // Bluetooth device name (user's display name from onboarding)
+  bool _bleInitialized = false; // Track when BleTransport is ready
+
+  @override
+  void initState() {
+    super.initState();
+    // CRITICAL: Do NOT create BleTransport here - do it ONLY in _initializeBle()
+    // after myId is loaded. Creating it twice breaks the stream controller.
+    _initializeBle();
+  }
+
+  Future<void> _initializeBle() async {
+    final prefs = await SharedPreferences.getInstance();
+    final myId = prefs.getString('myId') ?? '';
+    final deviceName = prefs.getString('displayName') ?? 'Unknown Device';
+    if (!mounted) return; // Safety check: widget might be disposed
+
+    setState(() {
+      _myId = myId;
+      _deviceName =
+          deviceName; // Use user's display name as Bluetooth device name
+      // Create BleTransport ONLY ONCE with the real myId
+      // CRITICAL: Do NOT recreate it - that breaks the stream controller listener!
+      if (!_bleInitialized) {
+        _ble = BleTransport(myId: _myId);
+        _bleInitialized = true;
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -124,10 +157,15 @@ class _BleTestWidgetState extends State<_BleTestWidget> {
       debugPrint('Got packet: ${packet.type} from ${packet.from}');
     });
 
-    // Update connected peers count every 3 seconds
+    // Update connected peers list every 3 seconds
     _statsTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       setState(() {
-        _connectedPeersCount = _ble.connectedPeerIds.length;
+        _peersList = _ble.connectedPeerIds;
+        _connectedPeersCount = _peersList.length;
+        // If selected peer is no longer connected, deselect it
+        if (_selectedPeerId != null && !_peersList.contains(_selectedPeerId)) {
+          _selectedPeerId = null;
+        }
       });
       debugPrint('Connected peers: $_connectedPeersCount');
     });
@@ -136,16 +174,40 @@ class _BleTestWidgetState extends State<_BleTestWidget> {
   }
 
   Future<void> _sendTestPacket() async {
-    final packet = Packet.discovery(
-      from: 'test-device-${DateTime.now().millisecondsSinceEpoch % 1000}',
-      displayName: 'Test Device',
-    );
-    await _ble.broadcast(packet);
-    debugPrint('Sent test discovery packet: ${packet.id}');
+    if (_selectedPeerId == null) {
+      // No peer selected: emit loopback test packet
+      debugPrint('No peer selected - using loopback test');
+      _ble.emitTestPacket('My Device (loopback)');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sent loopback test packet (single device)'),
+          ),
+        );
+      }
+      return;
+    }
+
+    final packet = Packet.discovery(from: _myId, displayName: 'Test Device');
+
+    debugPrint('Sending discovery packet to peer: $_selectedPeerId');
+    await _ble.broadcast(packet, excludeId: null);
+    // Note: broadcast sends to all peers. In Phase 4 we'll add direct messaging.
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sent packet to $_selectedPeerId')),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Show loading state until BleTransport is initialized
+    if (!_bleInitialized) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return Column(
       children: [
         const Text(
@@ -154,7 +216,7 @@ class _BleTestWidgetState extends State<_BleTestWidget> {
         ),
         const SizedBox(height: 16),
 
-        // Status display (only this rebuilds on updates)
+        // Status display
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -170,6 +232,11 @@ class _BleTestWidgetState extends State<_BleTestWidget> {
               ),
               const SizedBox(height: 8),
               Text(
+                'Your Device: $_deviceName',
+                style: const TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 8),
+              Text(
                 'Connected Peers: $_connectedPeersCount',
                 style: const TextStyle(fontSize: 14),
               ),
@@ -181,7 +248,115 @@ class _BleTestWidgetState extends State<_BleTestWidget> {
             ],
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
+
+        // Connected Peers List
+        const Text(
+          'Connected Peers',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          height: 120,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: _peersList.isEmpty
+              ? const Center(
+                  child: Text(
+                    'No peers connected',
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: _peersList.length,
+                  itemBuilder: (context, index) {
+                    final peerId = _peersList[index];
+                    final isSelected = peerId == _selectedPeerId;
+                    final displayId = peerId.length > 12
+                        ? '${peerId.substring(0, 12)}...'
+                        : peerId;
+
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedPeerId = isSelected ? null : peerId;
+                        });
+                      },
+                      child: Container(
+                        color: isSelected
+                            ? Colors.blue.withValues(alpha: 0.3)
+                            : null,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12.0,
+                          vertical: 8.0,
+                        ),
+                        child: Row(
+                          children: [
+                            Text(
+                              isSelected ? '✓' : '○',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: isSelected ? Colors.blue : Colors.grey,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              displayId,
+                              style: const TextStyle(fontSize: 12),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+        const SizedBox(height: 16),
+
+        // Selected Peer Display
+        if (_selectedPeerId != null)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.withValues(alpha: 0.1),
+              border: Border.all(color: Colors.blue),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Selected Peer:',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _selectedPeerId!,
+                  style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          )
+        else
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.grey.withValues(alpha: 0.1),
+              border: Border.all(color: Colors.grey),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              'No peer selected — tap a peer above to select',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ),
+        const SizedBox(height: 16),
 
         // Control buttons
         Row(
@@ -193,7 +368,7 @@ class _BleTestWidgetState extends State<_BleTestWidget> {
             ),
             ElevatedButton(
               onPressed: _bleStarted ? _sendTestPacket : null,
-              child: const Text('Send Test Packet'),
+              child: const Text('Send Packet'),
             ),
           ],
         ),

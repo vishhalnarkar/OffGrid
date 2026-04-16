@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 /// Represents a chat conversation (direct or group).
 /// Fields: id, type (direct/group), name (optional), memberIds (List stored as JSON), lastMessageAt (unix ms?)
@@ -33,15 +34,24 @@ class Chat {
 
   /// Create Chat from Map (database or JSON)
   /// Converts from snake_case database keys to camelCase model fields
-  /// memberIds is decoded from JSON string
+  /// memberIds is decoded from JSON string with safe error handling
   factory Chat.fromMap(Map<String, dynamic> map) {
+    List<String> memberIds = [];
+    try {
+      final memberIdsJson = map['member_ids'] as String;
+      memberIds = List<String>.from(
+        jsonDecode(memberIdsJson) as List<dynamic>,
+      );
+    } catch (e) {
+      debugPrint('[Chat] ERROR parsing member_ids: $e, using empty list');
+      memberIds = [];
+    }
+
     return Chat(
       id: map['id'] as String,
       type: map['type'] as String,
       name: map['name'] as String?,
-      memberIds: List<String>.from(
-        jsonDecode(map['member_ids'] as String) as List<dynamic>,
-      ),
+      memberIds: memberIds,
       lastMessageAt: map['last_message_at'] as int?,
     );
   }
