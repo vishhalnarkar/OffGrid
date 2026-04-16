@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -18,10 +19,13 @@ class BleTransport {
   static const int kMtu = 180; // Maximum usable bytes per BLE packet
   static const int kMaxConnectionRetries =
       3; // Max reconnect attempts per device
+  static const String kPlatformChannel = 'com.example.offgrid/ble_advertising';
 
   // Internal state
   final String myId; // Our own mesh ID
+  final String? deviceName; // Device display name for advertising
   final Map<String, BluetoothDevice> _peers = {};
+  final Map<String, String> _peerNames = {}; // Map device ID → display name
   final Map<String, StreamSubscription> _connectionStateSubscriptions =
       {}; // Track connection state listeners
   final Map<String, StreamSubscription> _characteristicSubscriptions =
@@ -34,17 +38,24 @@ class BleTransport {
   Timer? _scanTimer;
   StreamSubscription? _scanResultsSubscription; // Track scan results listener
   bool _permissionsGranted = false; // Cache permission status
-  // NOTE: BLE advertising (server mode) removed per ALFRED_KNOWLEDGE.md —
-  // flutter_blue_plus is the ONLY BLE package. Use client-side scanning only.
+  late final MethodChannel _platformChannel;
 
-  /// Constructor - requires this device's mesh ID
-  BleTransport({required this.myId});
+  /// Constructor - requires this device's mesh ID and optional display name
+  BleTransport({required this.myId, this.deviceName}) {
+    _platformChannel = const MethodChannel(kPlatformChannel);
+  }
 
   /// Public API: Stream of incoming packets
   Stream<Packet> get incomingPackets => _controller.stream;
 
   /// Public API: List of connected peer device IDs
   List<String> get connectedPeerIds => _peers.keys.toList();
+
+  /// Public API: Get the display name of a peer by its device ID
+  /// Returns the peer's display name, or a truncated device ID if name unavailable
+  String getPeerName(String deviceId) {
+    return _peerNames[deviceId] ?? deviceId.substring(0, 12);
+  }
 
   /// Public API: Local device's BLE address (same as shown in other users' peer lists)
   /// Returns the mesh ID which uniquely identifies this device
@@ -95,9 +106,12 @@ class BleTransport {
       debugPrint('[BLE] Bluetooth state after turnOn: $newState');
       debugPrint('[BLE] Local device ID: $myId');
 
-      // NOTE: BLE peripheral (server/advertising) mode removed per ALFRED rules.
-      // This device will operate in client-only mode: scanning and connecting to other devices.
-      // The device name will be advertised by OS at Bluetooth level during scanning.
+      // Start BLE advertising with device name so other devices can see this device
+      if (deviceName != null && deviceName!.isNotEmpty) {
+        await _startAdvertising(deviceName!);
+      } else {
+        debugPrint('[BLE] WARNING: No device name provided for advertising');
+      }
 
       // Begin initial scan
       await _startScan();
@@ -135,9 +149,19 @@ class BleTransport {
           for (final result in results) {
             final rssi = result.rssi;
             final deviceName = result.device.platformName;
-            debugPrint(
-              '[BLE]   - Found: ${result.device.remoteId} | "$deviceName" | RSSI: $rssi',
-            );
+            final hasName = deviceName.isNotEmpty;
+
+            // Enhanced logging: show clearly if device has a name or not
+            if (hasName) {
+              debugPrint(
+                '[BLE]   ✓ ADVERTISING: ${result.device.remoteId} | "$deviceName" | RSSI: $rssi',
+              );
+            } else {
+              debugPrint(
+                '[BLE]   ○ NO NAME: ${result.device.remoteId} | (empty) | RSSI: $rssi',
+              );
+            }
+
             // Try to connect to ALL devices discovered.
             // We validate that they have our service UUID after connecting.
             // This is more robust than filtering by name (which may not be advertised).
@@ -181,9 +205,15 @@ class BleTransport {
       // Mark as pending
       _pendingConnections.add(deviceId);
 
+      // Capture device name from BLE advertisement
+      final deviceName = device.platformName.isNotEmpty
+          ? device.platformName
+          : 'Device ${deviceId.substring(0, 8)}';
+      _peerNames[deviceId] = deviceName;
+
       // Attempt connection
       debugPrint(
-        '[BLE]   Connecting to $deviceId (attempt ${retries + 1}/$kMaxConnectionRetries)...',
+        '[BLE]   Connecting to $deviceId "$deviceName" (attempt ${retries + 1}/$kMaxConnectionRetries)...',
       );
       await device.connect(timeout: const Duration(seconds: 8));
 
@@ -204,6 +234,7 @@ class BleTransport {
         if (state == BluetoothConnectionState.disconnected) {
           _peers.remove(deviceId);
           _chunkBuffers.remove(deviceId);
+          _peerNames.remove(deviceId);
           // Cancel and remove the connection state subscription
           _connectionStateSubscriptions[deviceId]?.cancel();
           _connectionStateSubscriptions.remove(deviceId);
@@ -229,7 +260,10 @@ class BleTransport {
   Future<void> _subscribe(BluetoothDevice device) async {
     try {
       final deviceId = device.remoteId.str;
-      debugPrint('[BLE] Discovering services on $deviceId...');
+      final deviceName = device.platformName.isNotEmpty
+          ? device.platformName
+          : 'Unknown';
+      debugPrint('[BLE] Discovering services on $deviceId ("$deviceName")...');
       // Discover services
       final services = await device.discoverServices();
       debugPrint('[BLE] Found ${services.length} service(s)');
@@ -240,18 +274,21 @@ class BleTransport {
         debugPrint('[BLE]   Service: ${service.uuid}');
         if (service.uuid.str.toLowerCase() == kServiceUuid.toLowerCase()) {
           targetService = service;
-          debugPrint('[BLE]   ✓ Found our service!');
+          debugPrint('[BLE]   ✓✓✓ FOUND OFFGRID SERVICE ✓✓✓');
           break;
         }
       }
 
       if (targetService == null) {
-        debugPrint('[BLE] ERROR: Service $kServiceUuid not found on $deviceId');
-        debugPrint('[BLE] DISCONNECTING: $deviceId is not an OffGrid device');
+        debugPrint('[BLE] ✗ Service NOT found on $deviceId ("$deviceName")');
+        debugPrint(
+          '[BLE] → This device is not running OffGrid (or service not exposed)',
+        );
         // Disconnect immediately from devices that don't have our service
         await device.disconnect();
         _peers.remove(deviceId);
         _chunkBuffers.remove(deviceId);
+        _peerNames.remove(deviceId);
         return;
       }
 
@@ -275,6 +312,7 @@ class BleTransport {
         await device.disconnect();
         _peers.remove(deviceId);
         _chunkBuffers.remove(deviceId);
+        _peerNames.remove(deviceId);
         return;
       }
 
@@ -294,7 +332,12 @@ class BleTransport {
       );
       _characteristicSubscriptions[deviceId] = subscription;
 
-      debugPrint('[BLE] ✓ Successfully subscribed to $deviceId');
+      debugPrint('[BLE] ═══════════════════════════════════════════');
+      debugPrint('[BLE] ✓✓✓ CONNECTED TO OFFGRID PEER ✓✓✓');
+      debugPrint('[BLE] Peer: ${_peerNames[deviceId] ?? "Unknown"}');
+      debugPrint('[BLE] ID: $deviceId');
+      debugPrint('[BLE] Total peers: ${_peers.length}');
+      debugPrint('[BLE] ═══════════════════════════════════════════');
     } catch (e) {
       debugPrint('[BLE] ERROR during subscribe: $e');
     }
@@ -531,5 +574,31 @@ class BleTransport {
     // Stop BLE scanning
     FlutterBluePlus.stopScan();
     debugPrint('[BLE] ✓ BLE Transport disposed');
+  }
+
+  /// Start BLE advertising on native side with the device name
+  /// This makes this device visible to other devices with the user's display name
+  Future<void> _startAdvertising(String name) async {
+    try {
+      debugPrint('[BLE] ═══════════════════════════════════════════');
+      debugPrint('[BLE] Starting BLE advertising with name: "$name"');
+      debugPrint('[BLE] ═══════════════════════════════════════════');
+
+      final result = await _platformChannel.invokeMethod<String>(
+        'startAdvertising',
+        {'deviceName': name},
+      );
+
+      debugPrint('[BLE] ✓✓✓ ADVERTISING ACTIVE ✓✓✓');
+      debugPrint('[BLE] Result: $result');
+      debugPrint('[BLE] Device is now visible as: "$name"');
+      debugPrint('[BLE] Other devices should see this name in scan results');
+      debugPrint('[BLE] ═══════════════════════════════════════════');
+    } catch (e) {
+      debugPrint('[BLE] ✗✗✗ ADVERTISING FAILED ✗✗✗');
+      debugPrint('[BLE] Error: $e');
+      debugPrint('[BLE] Device name will NOT be advertised');
+      debugPrint('[BLE] ═══════════════════════════════════════════');
+    }
   }
 }

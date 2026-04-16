@@ -116,10 +116,10 @@ class _BleTestWidgetState extends State<_BleTestWidget> {
       _myId = myId;
       _deviceName =
           deviceName; // Use user's display name as Bluetooth device name
-      // Create BleTransport ONLY ONCE with the real myId
+      // Create BleTransport ONLY ONCE with the real myId and device name
       // CRITICAL: Do NOT recreate it - that breaks the stream controller listener!
       if (!_bleInitialized) {
-        _ble = BleTransport(myId: _myId);
+        _ble = BleTransport(myId: _myId, deviceName: _deviceName);
         _bleInitialized = true;
       }
     });
@@ -274,9 +274,8 @@ class _BleTestWidgetState extends State<_BleTestWidget> {
                   itemBuilder: (context, index) {
                     final peerId = _peersList[index];
                     final isSelected = peerId == _selectedPeerId;
-                    final displayId = peerId.length > 12
-                        ? '${peerId.substring(0, 12)}...'
-                        : peerId;
+                    // Get the peer's display name from BleTransport
+                    final peerName = _ble.getPeerName(peerId);
 
                     return GestureDetector(
                       onTap: () {
@@ -302,11 +301,30 @@ class _BleTestWidgetState extends State<_BleTestWidget> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Text(
-                              displayId,
-                              style: const TextStyle(fontSize: 12),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    peerName,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    peerId.substring(0, 12),
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.grey,
+                                      fontFamily: 'monospace',
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
@@ -335,8 +353,18 @@ class _BleTestWidgetState extends State<_BleTestWidget> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _selectedPeerId!,
-                  style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                  _ble.getPeerName(_selectedPeerId!),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'ID: ${_selectedPeerId!}',
+                  style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
