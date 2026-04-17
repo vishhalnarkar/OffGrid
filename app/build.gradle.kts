@@ -19,7 +19,15 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
+            // Keep only essential densities
+            generatedDensities("mdpi", "hdpi", "xhdpi", "xxhdpi")
         }
+    }
+
+    // Resource filtering for smaller APK
+    androidResources {
+        // Keep only essential languages to reduce APK size significantly
+        localeFilters += listOf("en", "es", "fr", "de", "zh", "ja", "ko", "ru", "ar", "hi")
     }
 
     dependenciesInfo {
@@ -43,6 +51,27 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            
+            // Additional size optimizations
+            ndk {
+                // Only include arm64 for release (most modern devices)
+                // This significantly reduces APK size
+                abiFilters += listOf("arm64-v8a")
+            }
+        }
+    }
+
+    // Resource optimization - remove unused resources
+    bundle {
+        language {
+            // Keep only English and a few major languages to reduce size
+            enableSplit = true
+        }
+        density {
+            enableSplit = true
+        }
+        abi {
+            enableSplit = true
         }
     }
 
@@ -76,6 +105,43 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            // Exclude additional unnecessary files to reduce APK size
+            excludes += "/META-INF/*.kotlin_module"
+            excludes += "/META-INF/DEPENDENCIES"
+            excludes += "/META-INF/LICENSE"
+            excludes += "/META-INF/LICENSE.txt"
+            excludes += "/META-INF/license.txt"
+            excludes += "/META-INF/NOTICE"
+            excludes += "/META-INF/NOTICE.txt"
+            excludes += "/META-INF/notice.txt"
+            excludes += "/META-INF/ASL2.0"
+            excludes += "/META-INF/*.version"
+            excludes += "/META-INF/versions/**"
+            excludes += "/*.properties"
+            excludes += "/kotlin/**"
+            excludes += "/META-INF/com.android.tools/**"
+            excludes += "/META-INF/proguard/**"
+            excludes += "DebugProbesKt.bin"
+            // Additional exclusions for smaller APK
+            excludes += "/META-INF/INDEX.LIST"
+            excludes += "/META-INF/MANIFEST.MF"
+            excludes += "/META-INF/*.SF"
+            excludes += "/META-INF/*.DSA"
+            excludes += "/META-INF/*.RSA"
+            excludes += "/META-INF/maven/**"
+            excludes += "/META-INF/gradle/**"
+            excludes += "/META-INF/services/**"
+            excludes += "**/*.proto"
+            excludes += "**/module-info.class"
+            excludes += "**/*.kotlin_builtins"
+            excludes += "**/kotlin-tooling-metadata.json"
+        }
+        
+        // Use JNI library stripping for smaller native libraries
+        jniLibs {
+            useLegacyPackaging = false
+            // Strip debug symbols from native libraries
+            keepDebugSymbols += listOf()
         }
     }
     lint {
