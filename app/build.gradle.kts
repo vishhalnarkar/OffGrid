@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.bitchat.android"
+    namespace = "com.offgrid.android"
     compileSdk = libs.versions.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.bitchat.droid"
+        applicationId = "com.offgrid.droid"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = 33
@@ -47,7 +47,6 @@ android {
     }
 
     // APK splits for GitHub releases - creates arm64, x86_64, and universal APKs
-    // AAB for Play Store handles architecture distribution automatically
     // Auto-detects: splits enabled for assemble tasks, disabled for bundle tasks
     // Works in Android Studio GUI and CLI without needing extra properties
     val enableSplits = gradle.startParameter.taskNames.any { taskName ->
@@ -60,7 +59,7 @@ android {
             isEnable = enableSplits
             reset()
             include("arm64-v8a", "x86_64", "armeabi-v7a", "x86")
-            isUniversalApk = true  // For F-Droid and fallback
+            isUniversalApk = true  // For distribution and fallback
         }
     }
 
