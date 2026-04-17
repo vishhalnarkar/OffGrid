@@ -1,6 +1,3 @@
-> [!WARNING]
-> This software has not received external security review and may contain vulnerabilities and may not necessarily meet its stated security goals. Do not use it for sensitive use cases, and do not rely on its security until it has been reviewed. Work in progress.
-
 # OffGrid for Android
 
 A secure, decentralized, peer-to-peer messaging app that works over Bluetooth mesh networks. No internet required for mesh chats, no servers, no phone numbers - just pure encrypted communication. OffGrid also supports Nostr integration and geohash-based location channels for connecting with others in your geographic area.
