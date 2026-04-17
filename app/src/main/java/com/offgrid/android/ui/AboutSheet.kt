@@ -5,15 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,94 +20,53 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.offgrid.android.nostr.NostrProofOfWork
 import com.offgrid.android.nostr.PoWPreferenceManager
 import androidx.compose.ui.res.stringResource
 import com.offgrid.android.R
 import com.offgrid.android.core.ui.component.button.CloseButton
 import com.offgrid.android.core.ui.component.sheet.OffGridBottomSheet
-import com.offgrid.android.net.TorMode
 import com.offgrid.android.net.TorPreferenceManager
 import com.offgrid.android.net.ArtiTorManager
+import com.offgrid.android.services.meshgraph.MeshGraphService
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.offgrid.android.ui.debug.ForceDirectedMeshGraph
 
 /**
- * Feature row for displaying app capabilities
+ * Real mesh network visualization showing actual peer connections
  */
 @Composable
-private fun FeatureRow(
-    icon: ImageVector,
-    title: String,
-    subtitle: String
-) {
-    val colorScheme = MaterialTheme.colorScheme
-    
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.Top
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = colorScheme.primary,
-            modifier = Modifier
-                .padding(top = 2.dp)
-                .size(22.dp)
-        )
-        Spacer(modifier = Modifier.width(14.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = colorScheme.onSurface
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = colorScheme.onSurface.copy(alpha = 0.6f),
-                lineHeight = 18.sp
-            )
-        }
-    }
-}
-
-/**
- * Theme selection chip with Apple-like styling
- */
-@Composable
-private fun ThemeChip(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
+private fun MeshNetworkVisualization(
     modifier: Modifier = Modifier
 ) {
-    val colorScheme = MaterialTheme.colorScheme
-    val isDark = colorScheme.background.red + colorScheme.background.green + colorScheme.background.blue < 1.5f
+    val meshGraphService = remember { MeshGraphService.getInstance() }
+    val graphSnapshot by meshGraphService.graphState.collectAsStateWithLifecycle()
     
-    Surface(
-        modifier = modifier,
-        onClick = onClick,
-        shape = RoundedCornerShape(10.dp),
-        color = if (selected) {
-            if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
-        } else {
-            colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        }
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(250.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 10.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodySmall,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                color = if (selected) Color.White else colorScheme.onSurface.copy(alpha = 0.8f)
+        if (graphSnapshot.nodes.isNotEmpty()) {
+            ForceDirectedMeshGraph(
+                nodes = graphSnapshot.nodes,
+                edges = graphSnapshot.edges,
+                modifier = Modifier.fillMaxSize()
             )
+        } else {
+            // Empty state
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No peers connected yet",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                    fontFamily = FontFamily.Monospace
+                )
+            }
         }
     }
 }
@@ -182,7 +135,7 @@ private fun SettingsToggleRow(
             enabled = enabled,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
-                checkedTrackColor = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D),
+                checkedTrackColor = Color(0xFF64B5F6), // Changed from green to blue
                 uncheckedThumbColor = Color.White,
                 uncheckedTrackColor = colorScheme.surfaceVariant
             )
@@ -200,6 +153,8 @@ fun AboutSheet(
     isPresented: Boolean,
     onDismiss: () -> Unit,
     onShowDebug: (() -> Unit)? = null,
+    nickname: String? = null,
+    onNicknameChange: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -274,89 +229,124 @@ fun AboutSheet(
                         }
                     }
 
-                    // Features Section - Grouped Card
-                    item(key = "features") {
-                        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                            Text(
-                                text = stringResource(R.string.about_appearance).uppercase(),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = colorScheme.onBackground.copy(alpha = 0.5f),
-                                letterSpacing = 0.5.sp,
-                                modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
-                            )
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                color = colorScheme.surface,
-                                shape = RoundedCornerShape(16.dp)
-                            ) {
-                                Column {
-                                    FeatureRow(
-                                        icon = Icons.Filled.Bluetooth,
-                                        title = stringResource(R.string.about_offline_mesh_title),
-                                        subtitle = stringResource(R.string.about_offline_mesh_desc)
-                                    )
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(start = 56.dp),
-                                        color = colorScheme.outline.copy(alpha = 0.12f)
-                                    )
-                                    FeatureRow(
-                                        icon = Icons.Default.Public,
-                                        title = stringResource(R.string.about_online_geohash_title),
-                                        subtitle = stringResource(R.string.about_online_geohash_desc)
-                                    )
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(start = 56.dp),
-                                        color = colorScheme.outline.copy(alpha = 0.12f)
-                                    )
-                                    FeatureRow(
-                                        icon = Icons.Default.Lock,
-                                        title = stringResource(R.string.about_e2e_title),
-                                        subtitle = stringResource(R.string.about_e2e_desc)
-                                    )
+
+
+                    // User Profile Section - Username
+                    if (nickname != null && onNicknameChange != null) {
+                        item(key = "user_profile") {
+                            var editedNickname by remember(nickname) { mutableStateOf(nickname) }
+                            var isEditing by remember { mutableStateOf(false) }
+
+                            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                                Text(
+                                    text = "USER PROFILE",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = colorScheme.onBackground.copy(alpha = 0.5f),
+                                    letterSpacing = 0.5.sp,
+                                    modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
+                                )
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = colorScheme.surface,
+                                    shape = RoundedCornerShape(16.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(16.dp),
+                                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        Text(
+                                            text = "Username",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Medium,
+                                            color = colorScheme.onSurface
+                                        )
+                                        
+                                        OutlinedTextField(
+                                            value = editedNickname,
+                                            onValueChange = { 
+                                                editedNickname = it
+                                                isEditing = true
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                                fontFamily = FontFamily.Monospace
+                                            ),
+                                            placeholder = {
+                                                Text(
+                                                    text = "Enter your username",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = colorScheme.onSurface.copy(alpha = 0.5f)
+                                                )
+                                            },
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedBorderColor = colorScheme.primary,
+                                                unfocusedBorderColor = colorScheme.outline
+                                            ),
+                                            singleLine = true
+                                        )
+                                        
+                                        if (isEditing && editedNickname.isNotBlank() && editedNickname != nickname) {
+                                            Button(
+                                                onClick = {
+                                                    onNicknameChange(editedNickname.trim())
+                                                    isEditing = false
+                                                },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = colorScheme.primary
+                                                )
+                                            ) {
+                                                Text(
+                                                    text = "Save Username",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
+                                        }
+                                        
+                                        Text(
+                                            text = "This is how other users will see you in the mesh network.",
+                                            fontSize = 12.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = colorScheme.onSurface.copy(alpha = 0.6f)
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
 
-                    // Appearance Section
+                    // Appearance Section - Mesh Map
                     item(key = "appearance") {
                         Column(modifier = Modifier.padding(horizontal = 20.dp)) {
                             Text(
-                                text = "THEME",
+                                text = "APPEARANCE",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = colorScheme.onBackground.copy(alpha = 0.5f),
                                 letterSpacing = 0.5.sp,
                                 modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
                             )
-                            val themePref by com.offgrid.android.ui.theme.ThemePreferenceManager.themeFlow.collectAsState()
                             Surface(
                                 modifier = Modifier.fillMaxWidth(),
                                 color = colorScheme.surface,
                                 shape = RoundedCornerShape(16.dp)
                             ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    ThemeChip(
-                                        label = stringResource(R.string.about_system),
-                                        selected = themePref.isSystem,
-                                        onClick = { com.offgrid.android.ui.theme.ThemePreferenceManager.set(context, com.offgrid.android.ui.theme.ThemePreference.System) },
-                                        modifier = Modifier.weight(1f)
+                                    Text(
+                                        text = "Mesh Network",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium,
+                                        color = colorScheme.onSurface
                                     )
-                                    ThemeChip(
-                                        label = stringResource(R.string.about_light),
-                                        selected = themePref.isLight,
-                                        onClick = { com.offgrid.android.ui.theme.ThemePreferenceManager.set(context, com.offgrid.android.ui.theme.ThemePreference.Light) },
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                    ThemeChip(
-                                        label = stringResource(R.string.about_dark),
-                                        selected = themePref.isDark,
-                                        onClick = { com.offgrid.android.ui.theme.ThemePreferenceManager.set(context, com.offgrid.android.ui.theme.ThemePreference.Dark) },
-                                        modifier = Modifier.weight(1f)
+                                    MeshNetworkVisualization()
+                                    Text(
+                                        text = "Your device is connected to the mesh network. Nodes represent peers in your network.",
+                                        fontSize = 12.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        color = colorScheme.onSurface.copy(alpha = 0.6f)
                                     )
                                 }
                             }
@@ -404,54 +394,6 @@ fun AboutSheet(
                                             }
                                         }
                                     )
-                                    
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(start = 56.dp),
-                                        color = colorScheme.outline.copy(alpha = 0.12f)
-                                    )
-                                    
-                                    // Proof of Work Toggle
-                                    SettingsToggleRow(
-                                        icon = Icons.Filled.Speed,
-                                        title = stringResource(R.string.about_pow),
-                                        subtitle = stringResource(R.string.about_pow_tip),
-                                        checked = powEnabled,
-                                        onCheckedChange = { PoWPreferenceManager.setPowEnabled(it) }
-                                    )
-                                    
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(start = 56.dp),
-                                        color = colorScheme.outline.copy(alpha = 0.12f)
-                                    )
-                                    
-                                    // Tor Toggle
-                                    SettingsToggleRow(
-                                        icon = Icons.Filled.Security,
-                                        title = "Tor Network",
-                                        subtitle = stringResource(R.string.about_tor_route),
-                                        checked = torMode.value == TorMode.ON,
-                                        onCheckedChange = { enabled ->
-                                            if (torAvailable) {
-                                                torMode.value = if (enabled) TorMode.ON else TorMode.OFF
-                                                TorPreferenceManager.set(context, torMode.value)
-                                            }
-                                        },
-                                        enabled = torAvailable,
-                                        statusIndicator = if (torMode.value == TorMode.ON) {
-                                            {
-                                                val statusColor = when {
-                                                    torStatus.running && torStatus.bootstrapPercent >= 100 -> if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
-                                                    torStatus.running -> Color(0xFFFF9500)
-                                                    else -> Color(0xFFFF3B30)
-                                                }
-                                                Surface(
-                                                    color = statusColor,
-                                                    shape = CircleShape,
-                                                    modifier = Modifier.size(8.dp)
-                                                ) {}
-                                            }
-                                        } else null
-                                    )
                                 }
                             }
                             
@@ -468,157 +410,7 @@ fun AboutSheet(
                         }
                     }
 
-                    // PoW Difficulty Slider (when enabled)
-                    item(key = "pow_slider") {
-                        val powEnabled by PoWPreferenceManager.powEnabled.collectAsState()
-                        val powDifficulty by PoWPreferenceManager.powDifficulty.collectAsState()
-                        
-                        if (powEnabled) {
-                            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    color = colorScheme.surface,
-                                    shape = RoundedCornerShape(16.dp)
-                                ) {
-                                    Column(
-                                        modifier = Modifier.padding(16.dp),
-                                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                text = "Difficulty",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = FontWeight.Medium,
-                                                color = colorScheme.onSurface
-                                            )
-                                            Text(
-                                                text = "$powDifficulty bits • ${NostrProofOfWork.estimateMiningTime(powDifficulty)}",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                fontFamily = FontFamily.Monospace,
-                                                color = colorScheme.onSurface.copy(alpha = 0.6f)
-                                            )
-                                        }
-                                        
-                                        Slider(
-                                            value = powDifficulty.toFloat(),
-                                            onValueChange = { PoWPreferenceManager.setPowDifficulty(it.toInt()) },
-                                            valueRange = 0f..32f,
-                                            steps = 31,
-                                            colors = SliderDefaults.colors(
-                                                thumbColor = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D),
-                                                activeTrackColor = if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
-                                            )
-                                        )
-                                        
-                                        Text(
-                                            text = when {
-                                                powDifficulty == 0 -> stringResource(R.string.about_pow_desc_none)
-                                                powDifficulty <= 8 -> stringResource(R.string.about_pow_desc_very_low)
-                                                powDifficulty <= 12 -> stringResource(R.string.about_pow_desc_low)
-                                                powDifficulty <= 16 -> stringResource(R.string.about_pow_desc_medium)
-                                                powDifficulty <= 20 -> stringResource(R.string.about_pow_desc_high)
-                                                powDifficulty <= 24 -> stringResource(R.string.about_pow_desc_very_high)
-                                                else -> stringResource(R.string.about_pow_desc_extreme)
-                                            },
-                                            fontSize = 12.sp,
-                                            fontFamily = FontFamily.Monospace,
-                                            color = colorScheme.onSurface.copy(alpha = 0.5f)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
 
-                    // Tor Status (when enabled)
-                    item(key = "tor_status") {
-                        val torMode = remember { mutableStateOf(TorPreferenceManager.get(context)) }
-                        val torProvider = remember { ArtiTorManager.getInstance() }
-                        val torStatus by torProvider.statusFlow.collectAsState()
-                        
-                        if (torMode.value == TorMode.ON) {
-                            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    color = colorScheme.surface,
-                                    shape = RoundedCornerShape(16.dp)
-                                ) {
-                                    Column(
-                                        modifier = Modifier.padding(16.dp),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            val statusColor = when {
-                                                torStatus.running && torStatus.bootstrapPercent >= 100 -> if (isDark) Color(0xFF32D74B) else Color(0xFF248A3D)
-                                                torStatus.running -> Color(0xFFFF9500)
-                                                else -> Color(0xFFFF3B30)
-                                            }
-                                            Surface(color = statusColor, shape = CircleShape, modifier = Modifier.size(10.dp)) {}
-                                            Text(
-                                                text = if (torStatus.running) "Connected (${torStatus.bootstrapPercent}%)" else "Disconnected",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = FontWeight.Medium,
-                                                color = colorScheme.onSurface
-                                            )
-                                        }
-                                        if (torStatus.lastLogLine.isNotEmpty()) {
-                                            Text(
-                                                text = torStatus.lastLogLine.take(120),
-                                                fontSize = 11.sp,
-                                                fontFamily = FontFamily.Monospace,
-                                                color = colorScheme.onSurface.copy(alpha = 0.5f),
-                                                maxLines = 2
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Emergency Warning
-                    item(key = "warning") {
-                        Surface(
-                            modifier = Modifier
-                                .padding(horizontal = 20.dp)
-                                .fillMaxWidth(),
-                            color = colorScheme.error.copy(alpha = 0.1f),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalAlignment = Alignment.Top
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Warning,
-                                    contentDescription = null,
-                                    tint = colorScheme.error,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text(
-                                        text = stringResource(R.string.about_emergency_title),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = colorScheme.error
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.about_emergency_tip),
-                                        fontSize = 13.sp,
-                                        color = colorScheme.onSurface.copy(alpha = 0.7f)
-                                    )
-                                }
-                            }
-                        }
-                    }
 
                     // Footer
                     item(key = "footer") {

@@ -508,3 +508,45 @@ fun MentionSuggestionItem(
         )
     }
 }
+
+/**
+ * ChatInputSection - A wrapper around MessageInput that provides additional parameters
+ * for command and mention suggestions (currently unused but kept for API compatibility)
+ */
+@Composable
+fun ChatInputSection(
+    messageText: TextFieldValue,
+    onMessageTextChange: (TextFieldValue) -> Unit,
+    onSend: () -> Unit,
+    onSendVoiceNote: (String?, String?, String) -> Unit,
+    onSendImageNote: (String?, String?, String) -> Unit,
+    onSendFileNote: (String?, String?, String) -> Unit,
+    showCommandSuggestions: Boolean,
+    commandSuggestions: List<Any>,
+    showMentionSuggestions: Boolean,
+    mentionSuggestions: List<String>,
+    onCommandSuggestionClick: (Any) -> Unit,
+    onMentionSuggestionClick: (String) -> Unit,
+    selectedPrivatePeer: String?,
+    currentChannel: String?,
+    nickname: String,
+    colorScheme: ColorScheme,
+    showMediaButtons: Boolean,
+    modifier: Modifier = Modifier
+) {
+    // For now, we just delegate to MessageInput and ignore the suggestion parameters
+    // In the future, these could be used to show autocomplete suggestions
+    MessageInput(
+        value = messageText,
+        onValueChange = onMessageTextChange,
+        onSend = onSend,
+        onSendVoiceNote = onSendVoiceNote,
+        onSendImageNote = onSendImageNote,
+        onSendFileNote = onSendFileNote,
+        selectedPrivatePeer = selectedPrivatePeer,
+        currentChannel = currentChannel,
+        nickname = nickname,
+        showMediaButtons = showMediaButtons,
+        modifier = modifier
+    )
+}

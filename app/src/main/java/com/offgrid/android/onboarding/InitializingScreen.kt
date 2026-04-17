@@ -3,16 +3,22 @@ package com.offgrid.android.onboarding
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -24,15 +30,45 @@ import com.offgrid.android.R
 import kotlin.math.*
 import kotlin.random.Random
 
-// 3D Network Node data class
+// Particle system for background effects
+data class Particle(
+    var x: Float,
+    var y: Float,
+    var vx: Float,
+    var vy: Float,
+    var life: Float,
+    var maxLife: Float,
+    var size: Float,
+    var alpha: Float = 1f
+)
+
+// Interactive touch ripple effect
+data class TouchRipple(
+    val x: Float,
+    val y: Float,
+    var radius: Float = 0f,
+    var alpha: Float = 1f,
+    val maxRadius: Float = 200f
+)
+
+// Enhanced 3D Network Node with interactive features
 data class NetworkNode(
     val id: Int,
     val x: Float,
     val y: Float,
     val z: Float,
     var pulsePhase: Float = Random.nextFloat() * 2 * PI.toFloat(),
-    var connections: List<Int> = emptyList()
+    var connections: List<Int> = emptyList(),
+    var isHighlighted: Boolean = false,
+    var highlightIntensity: Float = 0f
 )
+
+// Holographic scan line effect - REMOVED
+// data class ScanLine(
+//     var y: Float,
+//     var opacity: Float,
+//     var speed: Float
+// )
 
 // Network connection data class
 data class NetworkConnection(
@@ -107,105 +143,216 @@ fun project3DTo2D(
 }
 
 /**
- * Cinematic 3D Network Mesh Animation Component
+ * Advanced Futuristic Network Mesh with Interactive Features
  */
 @Composable
-fun CinematicNetworkMesh(
+fun FuturisticNetworkMesh(
     modifier: Modifier = Modifier,
-    size: Float = 200f
+    size: Float = 400f
 ) {
-    // Create the network mesh once
+    // Create the network mesh and particles
     val (nodes, connections) = remember { createNetworkMesh() }
+    val particles = remember { mutableStateListOf<Particle>() }
+    val touchRipples = remember { mutableStateListOf<TouchRipple>() }
     
-    // Animation states
-    val infiniteTransition = rememberInfiniteTransition(label = "network_animation")
+    // Interactive state
+    var lastTouchTime by remember { mutableStateOf(0L) }
     
-    // Slow rotation animation (faster)
+    // Advanced animation states
+    val infiniteTransition = rememberInfiniteTransition(label = "futuristic_animation")
+    
+    // Multi-layered rotation system
     val rotationY by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(15000, easing = LinearEasing),
+            animation = tween(25000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "rotation_y"
     )
     
-    // Subtle rotation on X axis for more dynamic movement (faster)
     val rotationX by infiniteTransition.animateFloat(
-        initialValue = -10f,
-        targetValue = 10f,
+        initialValue = -15f,
+        targetValue = 15f,
         animationSpec = infiniteRepeatable(
-            animation = tween(10000, easing = FastOutSlowInEasing),
+            animation = tween(18000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "rotation_x"
     )
     
-    // Camera push-in effect (zoom) - starts larger
-    val cameraZoom by infiniteTransition.animateFloat(
-        initialValue = 1.1f, // Start bigger
-        targetValue = 1.4f,  // End bigger
+    // Dynamic camera system with multiple zoom layers
+    val primaryZoom by infiniteTransition.animateFloat(
+        initialValue = 0.9f,
+        targetValue = 1.3f,
         animationSpec = infiniteRepeatable(
-            animation = tween(8000, easing = FastOutSlowInEasing),
+            animation = tween(12000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "camera_zoom"
+        label = "primary_zoom"
     )
     
-    // Pulse animation for nodes (faster)
-    val pulseTime by infiniteTransition.animateFloat(
+    val secondaryZoom by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(8000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "secondary_zoom"
+    )
+    
+    // Advanced pulsing with harmonic frequencies
+    val primaryPulse by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 2 * PI.toFloat(),
         animationSpec = infiniteRepeatable(
             animation = tween(4000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
-        label = "pulse_time"
+        label = "primary_pulse"
     )
     
-    // Remove data packet animation - no more sparkle dots
-    // val packetProgress by infiniteTransition.animateFloat(
+    val secondaryPulse by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 2 * PI.toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(6000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "secondary_pulse"
+    )
+    
+    // Holographic scan effect - REMOVED
+    // val scanProgress by infiniteTransition.animateFloat(
     //     initialValue = 0f,
     //     targetValue = 1f,
     //     animationSpec = infiniteRepeatable(
-    //         animation = tween(3500, easing = LinearEasing),
+    //         animation = tween(3000, easing = LinearEasing),
     //         repeatMode = RepeatMode.Restart
     //     ),
-    //     label = "packet_progress"
+    //     label = "scan_progress"
     // )
     
-    Canvas(modifier = modifier.size(size.dp)) {
+    // Particle system animation
+    val particleTime by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1000f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(60000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "particle_time"
+    )
+    
+    // Update particles and effects
+    LaunchedEffect(particleTime) {
+        // Add new particles
+        if (particles.size < 50) {
+            repeat(2) {
+                particles.add(
+                    Particle(
+                        x = Random.nextFloat() * size,
+                        y = Random.nextFloat() * size,
+                        vx = (Random.nextFloat() - 0.5f) * 0.5f,
+                        vy = (Random.nextFloat() - 0.5f) * 0.5f,
+                        life = Random.nextFloat() * 5f + 2f,
+                        maxLife = Random.nextFloat() * 5f + 2f,
+                        size = Random.nextFloat() * 2f + 1f
+                    )
+                )
+            }
+        }
+        
+        // Update existing particles
+        particles.removeAll { particle ->
+            particle.life -= 0.016f // ~60fps
+            particle.x += particle.vx
+            particle.y += particle.vy
+            particle.alpha = (particle.life / particle.maxLife).coerceIn(0f, 1f)
+            particle.life <= 0f
+        }
+        
+        // Update touch ripples
+        touchRipples.removeAll { ripple ->
+            ripple.radius += 3f
+            ripple.alpha = 1f - (ripple.radius / ripple.maxRadius)
+            ripple.radius >= ripple.maxRadius
+        }
+        
+        // Update scan lines - REMOVED
+        // if (scanLines.isEmpty() || Random.nextFloat() < 0.02f) {
+        //     scanLines.add(
+        //         ScanLine(
+        //             y = -50f,
+        //             opacity = 0.8f,
+        //             speed = Random.nextFloat() * 2f + 1f
+        //         )
+        //     )
+        // }
+        //
+        // scanLines.removeAll { scanLine ->
+        //     scanLine.y += scanLine.speed
+        //     scanLine.opacity *= 0.995f
+        //     scanLine.y > size + 50f || scanLine.opacity < 0.1f
+        // }
+    }
+
+    Canvas(
+        modifier = modifier
+            .size(size.dp)
+            .pointerInput(Unit) {
+                detectTapGestures { offset ->
+                    // Add interactive touch ripple
+                    touchRipples.add(
+                        TouchRipple(
+                            x = offset.x,
+                            y = offset.y
+                        )
+                    )
+                    lastTouchTime = System.currentTimeMillis()
+                }
+            }
+    ) {
         val centerX = this.size.width / 2
         val centerY = this.size.height / 2
-        val scale = this.size.width * 0.15f * cameraZoom
+        val finalZoom = primaryZoom * secondaryZoom
+        val scale = this.size.width * 0.15f * finalZoom
         
-        drawNetworkMesh(
+        drawFuturisticMesh(
             nodes = nodes,
             connections = connections,
+            particles = particles,
+            touchRipples = touchRipples,
             centerX = centerX,
             centerY = centerY,
             scale = scale,
             rotationX = rotationX,
             rotationY = rotationY,
-            pulseTime = pulseTime
-            // Removed packetProgress parameter
+            primaryPulse = primaryPulse,
+            secondaryPulse = secondaryPulse,
+            canvasSize = this.size
         )
     }
 }
 
 /**
- * Draws the 3D network mesh with all animations (no data packets)
+ * Advanced futuristic mesh drawing with multiple visual layers
  */
-fun DrawScope.drawNetworkMesh(
+fun DrawScope.drawFuturisticMesh(
     nodes: List<NetworkNode>,
     connections: List<NetworkConnection>,
+    particles: List<Particle>,
+    touchRipples: List<TouchRipple>,
     centerX: Float,
     centerY: Float,
     scale: Float,
     rotationX: Float,
     rotationY: Float,
-    pulseTime: Float
+    primaryPulse: Float,
+    secondaryPulse: Float,
+    canvasSize: androidx.compose.ui.geometry.Size
 ) {
     // Transform nodes with rotation
     val transformedNodes = nodes.map { node ->
@@ -213,72 +360,194 @@ fun DrawScope.drawNetworkMesh(
         node.copy(x = x, y = y, z = z)
     }
     
-    // Sort nodes by Z-depth for proper rendering order
-    val sortedNodes = transformedNodes.sortedBy { it.z }
     val nodePositions = transformedNodes.map { node ->
         project3DTo2D(node.x, node.y, node.z, centerX, centerY, scale)
     }
     
-    // Draw connections first (behind nodes) - no data packets
+    // Layer 1: Background particles
+    particles.forEach { particle ->
+        val particleColor = Color(0xFF64B5F6).copy(alpha = particle.alpha * 0.3f)
+        drawCircle(
+            color = particleColor,
+            radius = particle.size,
+            center = Offset(particle.x, particle.y)
+        )
+    }
+    
+    // Layer 2: Holographic scan lines - REMOVED
+    // scanLines.forEach { scanLine ->
+    //     val gradient = Brush.verticalGradient(
+    //         colors = listOf(
+    //             Color.Transparent,
+    //             Color(0xFF64B5F6).copy(alpha = scanLine.opacity * 0.5f),
+    //             Color(0xFF90CAF9).copy(alpha = scanLine.opacity * 0.8f),
+    //             Color(0xFF64B5F6).copy(alpha = scanLine.opacity * 0.5f),
+    //             Color.Transparent
+    //         ),
+    //         startY = scanLine.y - 10f,
+    //         endY = scanLine.y + 10f
+    //     )
+    //
+    //     drawRect(
+    //         brush = gradient,
+    //         topLeft = Offset(0f, scanLine.y - 10f),
+    //         size = androidx.compose.ui.geometry.Size(canvasSize.width, 20f)
+    //     )
+    // }
+    
+    // Layer 3: Enhanced connections with energy flow
     connections.forEach { connection ->
         val fromPos = nodePositions[connection.from]
         val toPos = nodePositions[connection.to]
         val fromZ = transformedNodes[connection.from].z
         val toZ = transformedNodes[connection.to].z
         
-        // Calculate depth-based alpha (further = more transparent)
         val avgZ = (fromZ + toZ) / 2
-        val depthAlpha = (1f - (avgZ + 2f) / 4f).coerceIn(0.1f, 0.8f)
+        val depthAlpha = (1f - (avgZ + 2f) / 4f).coerceIn(0.1f, 0.9f)
         
-        // Base connection line only
+        // Main connection line with glow
         drawLine(
-            color = Color(0xFF00FF7F).copy(alpha = depthAlpha * 0.3f),
+            brush = Brush.linearGradient(
+                colors = listOf(
+                    Color(0xFF64B5F6).copy(alpha = depthAlpha * 0.2f),
+                    Color(0xFF90CAF9).copy(alpha = depthAlpha * 0.6f),
+                    Color(0xFF64B5F6).copy(alpha = depthAlpha * 0.2f)
+                ),
+                start = fromPos,
+                end = toPos
+            ),
             start = fromPos,
             end = toPos,
-            strokeWidth = 1.dp.toPx()
+            strokeWidth = 2.dp.toPx()
         )
-    }
-    
-    // Draw nodes with pulsing animation
-    sortedNodes.forEach { node ->
-        val pos = project3DTo2D(node.x, node.y, node.z, centerX, centerY, scale)
         
-        // Calculate depth-based effects
-        val depthAlpha = (1f - (node.z + 2f) / 4f).coerceIn(0.2f, 1f)
-        val depthSize = (1f - (node.z + 2f) / 6f).coerceIn(0.5f, 1f)
+        // Energy pulse along connection
+        val pulsePosition = (sin(primaryPulse + connection.from * 0.5f) + 1f) / 2f
+        val energyPos = Offset(
+            fromPos.x + (toPos.x - fromPos.x) * pulsePosition,
+            fromPos.y + (toPos.y - fromPos.y) * pulsePosition
+        )
         
-        // Pulsing effect (slower and more subtle)
-        val pulseIntensity = sin(pulseTime + node.pulsePhase) * 0.4f + 0.6f // Reduced pulse range
-        val nodeRadius = (4f + pulseIntensity * 2f) * depthSize // Slightly larger base size
-        val glowRadius = nodeRadius * 2.5f // Larger glow
-        
-        // Outer glow
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    Color(0xFF00FF7F).copy(alpha = depthAlpha * pulseIntensity * 0.3f),
+                    Color(0xFF90CAF9).copy(alpha = depthAlpha * 0.8f),
                     Color.Transparent
                 ),
-                radius = glowRadius.dp.toPx()
+                radius = 8f
             ),
-            radius = glowRadius.dp.toPx(),
-            center = pos
-        )
-        
-        // Main node
-        drawCircle(
-            color = Color(0xFF00FF7F).copy(alpha = depthAlpha * (0.7f + pulseIntensity * 0.3f)),
-            radius = nodeRadius.dp.toPx(),
-            center = pos
-        )
-        
-        // Core highlight
-        drawCircle(
-            color = Color.White.copy(alpha = depthAlpha * pulseIntensity * 0.8f),
-            radius = (nodeRadius * 0.3f).dp.toPx(),
-            center = pos
+            radius = 8f,
+            center = energyPos
         )
     }
+    
+    // Layer 4: Interactive touch ripples
+    touchRipples.forEach { ripple ->
+        drawCircle(
+            color = Color(0xFF64B5F6).copy(alpha = ripple.alpha * 0.3f),
+            radius = ripple.radius,
+            center = Offset(ripple.x, ripple.y),
+            style = Stroke(width = 2.dp.toPx())
+        )
+        
+        drawCircle(
+            color = Color(0xFF90CAF9).copy(alpha = ripple.alpha * 0.6f),
+            radius = ripple.radius * 0.5f,
+            center = Offset(ripple.x, ripple.y),
+            style = Stroke(width = 1.dp.toPx())
+        )
+    }
+    
+    // Layer 5: Enhanced nodes with multiple pulse frequencies
+    transformedNodes.sortedBy { it.z }.forEach { node ->
+        val pos = project3DTo2D(node.x, node.y, node.z, centerX, centerY, scale)
+        
+        val depthAlpha = (1f - (node.z + 2f) / 4f).coerceIn(0.2f, 1f)
+        val depthSize = (1f - (node.z + 2f) / 6f).coerceIn(0.5f, 1f)
+        
+        // Multi-frequency pulsing
+        val pulse1 = sin(primaryPulse + node.pulsePhase) * 0.3f + 0.7f
+        val pulse2 = sin(secondaryPulse + node.pulsePhase * 1.618f) * 0.2f + 0.8f
+        val combinedPulse = (pulse1 + pulse2) / 2f
+        
+        val nodeRadius = (5f + combinedPulse * 3f) * depthSize
+        val glowRadius = nodeRadius * 3f
+        
+        // Outer energy field
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    Color(0xFF64B5F6).copy(alpha = depthAlpha * combinedPulse * 0.1f),
+                    Color(0xFF42A5F5).copy(alpha = depthAlpha * combinedPulse * 0.3f),
+                    Color.Transparent
+                ),
+                radius = glowRadius * 1.5f
+            ),
+            radius = glowRadius * 1.5f,
+            center = pos
+        )
+        
+        // Main glow
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    Color(0xFF90CAF9).copy(alpha = depthAlpha * combinedPulse * 0.6f),
+                    Color(0xFF64B5F6).copy(alpha = depthAlpha * combinedPulse * 0.4f),
+                    Color.Transparent
+                ),
+                radius = glowRadius
+            ),
+            radius = glowRadius,
+            center = pos
+        )
+        
+        // Core node
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    Color(0xFFE3F2FD).copy(alpha = depthAlpha * 0.9f),
+                    Color(0xFF90CAF9).copy(alpha = depthAlpha * 0.7f),
+                    Color(0xFF64B5F6).copy(alpha = depthAlpha * 0.5f)
+                ),
+                radius = nodeRadius
+            ),
+            radius = nodeRadius,
+            center = pos
+        )
+        
+        // Inner highlight
+        drawCircle(
+            color = Color.White.copy(alpha = depthAlpha * combinedPulse * 0.8f),
+            radius = nodeRadius * 0.3f,
+            center = pos
+        )
+        
+        // Rotating ring effect
+        val ringRotation = (primaryPulse * 2f + node.id * 30f) % 360f
+        rotate(ringRotation, pos) {
+            drawCircle(
+                color = Color(0xFF64B5F6).copy(alpha = depthAlpha * 0.4f),
+                radius = nodeRadius * 1.5f,
+                center = pos,
+                style = Stroke(width = 1.dp.toPx())
+            )
+        }
+    }
+    
+    // Layer 6: Holographic overlay effect - REMOVED
+    // val overlayAlpha = (sin(scanProgress * 2 * PI.toFloat()) * 0.1f + 0.05f).coerceIn(0f, 0.15f)
+    // drawRect(
+    //     brush = Brush.verticalGradient(
+    //         colors = listOf(
+    //             Color(0xFF64B5F6).copy(alpha = overlayAlpha),
+    //             Color.Transparent,
+    //             Color(0xFF90CAF9).copy(alpha = overlayAlpha * 0.5f),
+    //             Color.Transparent,
+    //             Color(0xFF64B5F6).copy(alpha = overlayAlpha)
+    //         )
+    //     ),
+    //     size = canvasSize
+    // )
 }
 
 /**
@@ -305,22 +574,43 @@ fun rotatePoint(x: Float, y: Float, z: Float, rotX: Float, rotY: Float): Triple<
 /**
  * Cinematic loading screen with 3D animated network mesh
  */
+/**
+ * Advanced Futuristic Loading Screen with Interactive Elements
+ */
 @Composable
 fun InitializingScreen(modifier: Modifier) {
-    // Dark, high-tech background
-    val backgroundColor = Color(0xFF0A0A0A)
-    val primaryGreen = Color(0xFF00FF7F)
+    // Theme colors
+    val backgroundColor = MaterialTheme.colorScheme.background
+    val primaryBlue = MaterialTheme.colorScheme.primary
+    val surfaceBlue = MaterialTheme.colorScheme.surface
     
-    // Animated dots for loading text (faster)
-    val infiniteTransition = rememberInfiniteTransition(label = "loading_dots")
+    // Interactive state
+    var isInteracting by remember { mutableStateOf(false) }
+    var interactionIntensity by remember { mutableStateOf(0f) }
+    
+    // Advanced animations
+    val infiniteTransition = rememberInfiniteTransition(label = "futuristic_loading")
+    
+    // Holographic title animation
+    val titleGlow by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "title_glow"
+    )
+    
+    // Animated typing effect for dots
     val dotCount = 3
-    val animationDelay = 500
+    val animationDelay = 400
     val dots = (0 until dotCount).map { index ->
         val alpha by infiniteTransition.animateFloat(
-            initialValue = 0.3f,
+            initialValue = 0.2f,
             targetValue = 1f,
             animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = animationDelay * dotCount),
+                animation = tween(durationMillis = animationDelay * dotCount, easing = FastOutSlowInEasing),
                 repeatMode = RepeatMode.Reverse,
                 initialStartOffset = StartOffset(animationDelay * index)
             ),
@@ -328,52 +618,92 @@ fun InitializingScreen(modifier: Modifier) {
         )
         alpha
     }
+    
+    // Progress simulation
+    val progress by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(8000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "progress"
+    )
+    
+    // Background pulse
+    val backgroundPulse by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "background_pulse"
+    )
+    
+    // Interaction animation
+    val interactionScale by animateFloatAsState(
+        targetValue = if (isInteracting) 1.05f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "interaction_scale"
+    )
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(backgroundColor),
+            .background(backgroundColor)
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onPress = {
+                        isInteracting = true
+                        tryAwaitRelease()
+                        isInteracting = false
+                    }
+                )
+            },
         contentAlignment = Alignment.Center
     ) {
+        
         Column(
-            verticalArrangement = Arrangement.spacedBy(40.dp), // Reduced spacing to move title down
-            horizontalAlignment = Alignment.CenterHorizontally
+            verticalArrangement = Arrangement.spacedBy(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.scale(interactionScale)
         ) {
-            // App title with subtle glow (moved down)
+            // Minimal app title
             Text(
                 text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.headlineLarge.copy(
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Light,
                     fontSize = 32.sp,
-                    color = primaryGreen,
+                    color = primaryBlue.copy(alpha = 0.9f),
                     letterSpacing = 4.sp
                 ),
                 textAlign = TextAlign.Center
             )
 
-            // Cinematic 3D Network Mesh Animation
-            CinematicNetworkMesh(
-                modifier = Modifier.size(400.dp),
-                size = 400f
+            // Advanced 3D Network Mesh
+            FuturisticNetworkMesh(
+                modifier = Modifier.size(380.dp),
+                size = 380f
             )
 
-            // Loading text with animated dots and status below
+            // Minimal loading section
             Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp), // Tight spacing between lines
+                verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Loading text with animated dots
+                // Main loading text
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Text(
                         text = stringResource(R.string.initializing_mesh_network),
-                        style = MaterialTheme.typography.bodyLarge.copy(
+                        style = MaterialTheme.typography.bodyMedium.copy(
                             fontFamily = FontFamily.Monospace,
-                            fontSize = 16.sp,
-                            color = primaryGreen.copy(alpha = 0.8f),
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
                             letterSpacing = 1.sp
                         )
                     )
@@ -382,41 +712,50 @@ fun InitializingScreen(modifier: Modifier) {
                     dots.forEach { alpha ->
                         Text(
                             text = stringResource(R.string.dot),
-                            style = MaterialTheme.typography.bodyLarge.copy(
+                            style = MaterialTheme.typography.bodyMedium.copy(
                                 fontFamily = FontFamily.Monospace,
-                                fontSize = 16.sp,
-                                color = primaryGreen.copy(alpha = alpha),
+                                fontSize = 14.sp,
+                                color = primaryBlue.copy(alpha = alpha),
                                 letterSpacing = 1.sp
                             )
                         )
                     }
                 }
 
-                // Status indicator right below
+                // Simple progress bar
+                Box(
+                    modifier = Modifier
+                        .width(200.dp)
+                        .height(2.dp)
+                        .background(
+                            MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                            RoundedCornerShape(1.dp)
+                        )
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(progress)
+                            .background(
+                                primaryBlue.copy(alpha = 0.7f),
+                                RoundedCornerShape(1.dp)
+                            )
+                    )
+                }
+
+                // Status text
                 Text(
                     text = "Establishing secure connections",
-                    style = MaterialTheme.typography.bodySmall.copy(
+                    style = MaterialTheme.typography.labelSmall.copy(
                         fontFamily = FontFamily.Monospace,
                         fontSize = 12.sp,
-                        color = primaryGreen.copy(alpha = 0.5f),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                         letterSpacing = 0.5.sp
                     ),
                     textAlign = TextAlign.Center
                 )
             }
         }
-        
-        // Subtle corner accent
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(24.dp)
-                .size(8.dp)
-                .background(
-                    primaryGreen.copy(alpha = 0.3f),
-                    shape = androidx.compose.foundation.shape.CircleShape
-                )
-        )
     }
 }
 
@@ -443,7 +782,7 @@ fun InitializationErrorScreen(
             // Error indicator
             Card(
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFFFEBEE)
+                    containerColor = colorScheme.errorContainer
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
@@ -467,7 +806,7 @@ fun InitializationErrorScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
-                    containerColor = colorScheme.errorContainer.copy(alpha = 0.1f)
+                    containerColor = colorScheme.errorContainer.copy(alpha = 0.3f)
                 ),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
@@ -475,7 +814,7 @@ fun InitializationErrorScreen(
                     text = errorMessage,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontFamily = FontFamily.Monospace,
-                        color = colorScheme.onSurface
+                        color = colorScheme.onErrorContainer
                     ),
                     modifier = Modifier.padding(16.dp),
                     textAlign = TextAlign.Center

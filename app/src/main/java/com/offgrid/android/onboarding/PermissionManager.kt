@@ -39,6 +39,16 @@ class PermissionManager(private val context: Context) {
             .apply()
         Log.d(TAG, "First-time onboarding marked as complete")
     }
+    
+    /**
+     * Reset the first-time flag (for testing/debugging)
+     */
+    fun resetFirstTimeLaunch() {
+        sharedPrefs.edit()
+            .putBoolean(KEY_FIRST_TIME_COMPLETE, false)
+            .apply()
+        Log.d(TAG, "First-time launch flag reset for testing")
+    }
 
     /**
      * Get required permissions that can be requested together.

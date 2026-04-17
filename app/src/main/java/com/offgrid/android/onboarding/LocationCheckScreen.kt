@@ -69,12 +69,12 @@ private fun LocationDisabledContent(
         verticalArrangement = Arrangement.spacedBy(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Location icon - using LocationOn outlined icon in app's green color
+        // Location icon - using LocationOn outlined icon in app's blue color
         Icon(
             imageVector = Icons.Outlined.LocationOn,
             contentDescription = stringResource(R.string.cd_location_services),
             modifier = Modifier.size(64.dp),
-            tint = Color(0xFF00C851) // App's main green color
+            tint = Color(0xFF64B5F6) // App's main blue color
         )
 
         Text(
@@ -106,7 +106,7 @@ private fun LocationDisabledContent(
                     Icon(
                         imageVector = Icons.Filled.Security,
                         contentDescription = stringResource(R.string.cd_privacy),
-                        tint = Color(0xFF4CAF50),
+                        tint = Color(0xFF64B5F6),
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -160,7 +160,7 @@ private fun LocationDisabledContent(
                     onClick = onEnableLocation,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF00C851) // App's main green color
+                        containerColor = Color(0xFF64B5F6) // App's main blue color
                     )
                 ) {
                         Text(
@@ -288,7 +288,7 @@ private fun LocationLoadingIndicator() {
             modifier = Modifier
                 .fillMaxSize()
                 .rotate(rotationAngle),
-            color = Color(0xFF4CAF50), // Location green
+            color = Color(0xFF64B5F6), // Location blue
             strokeWidth = 3.dp
         )
     }

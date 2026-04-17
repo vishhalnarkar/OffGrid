@@ -9,15 +9,29 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.offgrid.android.mesh.BluetoothMeshService
 import com.offgrid.android.onboarding.BluetoothCheckScreen
 import com.offgrid.android.onboarding.BluetoothStatus
@@ -36,8 +50,11 @@ import com.offgrid.android.onboarding.OnboardingCoordinator
 import com.offgrid.android.onboarding.OnboardingState
 import com.offgrid.android.onboarding.PermissionExplanationScreen
 import com.offgrid.android.onboarding.PermissionManager
+import com.offgrid.android.onboarding.SetNicknameScreen
 import com.offgrid.android.ui.ChatScreen
 import com.offgrid.android.ui.ChatViewModel
+import com.offgrid.android.ui.HikeChatScreen
+import com.offgrid.android.ui.AboutSheet
 import com.offgrid.android.ui.OrientationAwareActivity
 import com.offgrid.android.ui.theme.OffGridTheme
 import com.offgrid.android.nostr.PoWPreferenceManager
@@ -135,7 +152,14 @@ class MainActivity : OrientationAwareActivity() {
         onboardingCoordinator = OnboardingCoordinator(
             activity = this,
             permissionManager = permissionManager,
-            onOnboardingComplete = ::handleOnboardingComplete,
+            onOnboardingComplete = {
+                // After permissions are granted, go to nickname setup for first-time users
+                if (permissionManager.isFirstTimeLaunch()) {
+                    proceedToNicknameSetup()
+                } else {
+                    handleOnboardingComplete()
+                }
+            },
             onBackgroundLocationRequired = {
                 mainViewModel.updateOnboardingState(OnboardingState.BACKGROUND_LOCATION_EXPLANATION)
             },
@@ -183,9 +207,11 @@ class MainActivity : OrientationAwareActivity() {
         val isBluetoothLoading by mainViewModel.isBluetoothLoading.collectAsState()
         val isLocationLoading by mainViewModel.isLocationLoading.collectAsState()
         val isBatteryOptimizationLoading by mainViewModel.isBatteryOptimizationLoading.collectAsState()
+        
+        // Settings sheet state
+        var showSettingsSheet by remember { mutableStateOf(false) }
 
         DisposableEffect(context, bluetoothStatusManager) {
-
             val receiver = bluetoothStatusManager.monitorBluetoothState(
                 context = context,
                 bluetoothStatusManager = bluetoothStatusManager,
@@ -206,119 +232,127 @@ class MainActivity : OrientationAwareActivity() {
             }
         }
 
-        when (onboardingState) {
-            OnboardingState.PERMISSION_REQUESTING -> {
-                InitializingScreen(modifier)
-            }
-            
-            OnboardingState.BLUETOOTH_CHECK -> {
-                BluetoothCheckScreen(
-                    modifier = modifier,
-                    status = bluetoothStatus,
-                    onEnableBluetooth = {
-                        mainViewModel.updateBluetoothLoading(true)
-                        bluetoothStatusManager.requestEnableBluetooth()
-                    },
-                    onRetry = {
-                        checkBluetoothAndProceed()
-                    },
-                    isLoading = isBluetoothLoading
-                )
-            }
-            
-            OnboardingState.LOCATION_CHECK -> {
-                LocationCheckScreen(
-                    modifier = modifier,
-                    status = locationStatus,
-                    onEnableLocation = {
-                        mainViewModel.updateLocationLoading(true)
-                        locationStatusManager.requestEnableLocation()
-                    },
-                    onRetry = {
-                        checkLocationAndProceed()
-                    },
-                    isLoading = isLocationLoading
-                )
-            }
-            
-            OnboardingState.BATTERY_OPTIMIZATION_CHECK -> {
-                BatteryOptimizationScreen(
-                    modifier = modifier,
-                    status = batteryOptimizationStatus,
-                    onDisableBatteryOptimization = {
-                        mainViewModel.updateBatteryOptimizationLoading(true)
-                        batteryOptimizationManager.requestDisableBatteryOptimization()
-                    },
-                    onRetry = {
-                        checkBatteryOptimizationAndProceed()
-                    },
-                    onSkip = {
-                        // Skip battery optimization and proceed
-                        proceedWithPermissionCheck()
-                    },
-                    isLoading = isBatteryOptimizationLoading
-                )
-            }
-            
-            OnboardingState.PERMISSION_EXPLANATION -> {
-                PermissionExplanationScreen(
-                    modifier = modifier,
-                    permissionCategories = permissionManager.getCategorizedPermissions(),
-                    onContinue = {
-                        mainViewModel.updateOnboardingState(OnboardingState.PERMISSION_REQUESTING)
-                        onboardingCoordinator.requestPermissions()
-                    }
-                )
-            }
-
-            OnboardingState.BACKGROUND_LOCATION_EXPLANATION -> {
-                BackgroundLocationPermissionScreen(
-                    modifier = modifier,
-                    onContinue = {
-                        onboardingCoordinator.requestBackgroundLocation()
-                    },
-                    onRetry = {
-                        onboardingCoordinator.checkBackgroundLocationAndProceed()
-                    },
-                    onSkip = {
-                        onboardingCoordinator.skipBackgroundLocation()
-                    }
-                )
-            }
-
-            OnboardingState.CHECKING, OnboardingState.INITIALIZING, OnboardingState.COMPLETE -> {
-                // Set up back navigation handling for the chat screen
-                val backCallback = object : OnBackPressedCallback(true) {
-                    override fun handleOnBackPressed() {
-                        // Let ChatViewModel handle navigation state
-                        val handled = chatViewModel.handleBackPressed()
-                        if (!handled) {
-                            // If ChatViewModel doesn't handle it, disable this callback
-                            // and let the system handle it (which will exit the app)
-                            this.isEnabled = false
-                            onBackPressedDispatcher.onBackPressed()
-                            this.isEnabled = true
-                        }
-                    }
+        Box(modifier = modifier) {
+            when (onboardingState) {
+                OnboardingState.CHECKING -> {
+                    InitializingScreen(Modifier.fillMaxSize())
                 }
-
-                // Add the callback - this will be automatically removed when the activity is destroyed
-                onBackPressedDispatcher.addCallback(this, backCallback)
-                ChatScreen(viewModel = chatViewModel)
-            }
-            
-            OnboardingState.ERROR -> {
-                InitializationErrorScreen(
-                    modifier = modifier,
-                    errorMessage = errorMessage,
-                    onRetry = {
-                        mainViewModel.updateOnboardingState(OnboardingState.CHECKING)
-                        checkOnboardingStatus()
-                    },
-                    onOpenSettings = {
-                        onboardingCoordinator.openAppSettings()
+                
+                OnboardingState.PERMISSION_EXPLANATION -> {
+                    PermissionExplanationScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        permissionCategories = permissionManager.getCategorizedPermissions(),
+                        onContinue = { onboardingCoordinator.requestPermissions() }
+                    )
+                }
+                
+                OnboardingState.SET_NICKNAME -> {
+                    SetNicknameScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        onContinue = { nickname ->
+                            chatViewModel.setNickname(nickname)
+                            // Mark onboarding as complete now that nickname is set
+                            permissionManager.markOnboardingComplete()
+                            mainViewModel.updateOnboardingState(OnboardingState.BLUETOOTH_CHECK)
+                        },
+                        onSkip = {
+                            // Mark onboarding as complete even if skipped
+                            permissionManager.markOnboardingComplete()
+                            mainViewModel.updateOnboardingState(OnboardingState.BLUETOOTH_CHECK)
+                        }
+                    )
+                }
+                
+                OnboardingState.PERMISSION_REQUESTING -> {
+                    InitializingScreen(Modifier.fillMaxSize())
+                }
+                
+                OnboardingState.BLUETOOTH_CHECK -> {
+                    // Auto-check Bluetooth status when entering this state
+                    LaunchedEffect(Unit) {
+                        checkBluetoothAndProceed()
                     }
-                )
+                    
+                    BluetoothCheckScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        status = bluetoothStatus,
+                        onEnableBluetooth = { bluetoothStatusManager.requestEnableBluetooth() },
+                        onRetry = { checkBluetoothAndProceed() },
+                        isLoading = isBluetoothLoading
+                    )
+                }
+                
+                OnboardingState.LOCATION_CHECK -> {
+                    // Auto-check Location status when entering this state
+                    LaunchedEffect(Unit) {
+                        checkLocationAndProceed()
+                    }
+                    
+                    LocationCheckScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        status = locationStatus,
+                        onEnableLocation = { locationStatusManager.requestEnableLocation() },
+                        onRetry = { checkLocationAndProceed() },
+                        isLoading = isLocationLoading
+                    )
+                }
+                
+                OnboardingState.BATTERY_OPTIMIZATION_CHECK -> {
+                    // Auto-check Battery Optimization status when entering this state
+                    LaunchedEffect(Unit) {
+                        checkBatteryOptimizationAndProceed()
+                    }
+                    
+                    BatteryOptimizationScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        status = batteryOptimizationStatus,
+                        onDisableBatteryOptimization = { batteryOptimizationManager.requestDisableBatteryOptimization() },
+                        onRetry = { checkBatteryOptimizationAndProceed() },
+                        onSkip = { mainViewModel.updateOnboardingState(OnboardingState.BACKGROUND_LOCATION_EXPLANATION) },
+                        isLoading = isBatteryOptimizationLoading
+                    )
+                }
+                
+                OnboardingState.BACKGROUND_LOCATION_EXPLANATION -> {
+                    BackgroundLocationPermissionScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        onContinue = { onboardingCoordinator.requestBackgroundLocation() },
+                        onRetry = { onboardingCoordinator.requestBackgroundLocation() },
+                        onSkip = { handleOnboardingComplete() }
+                    )
+                }
+                
+                OnboardingState.INITIALIZING -> {
+                    InitializingScreen(Modifier.fillMaxSize())
+                }
+                
+                OnboardingState.ERROR -> {
+                    InitializationErrorScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        errorMessage = errorMessage ?: "An unknown error occurred",
+                        onRetry = { checkOnboardingStatus() },
+                        onOpenSettings = { startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) }
+                    )
+                }
+                
+                OnboardingState.COMPLETE -> {
+                    HikeChatScreen(
+                        viewModel = chatViewModel,
+                        onSettingsClick = { showSettingsSheet = true }
+                    )
+                    
+                    // Show settings sheet when requested
+                    val currentNickname by chatViewModel.nickname.collectAsStateWithLifecycle()
+                    AboutSheet(
+                        isPresented = showSettingsSheet,
+                        onDismiss = { showSettingsSheet = false },
+                        onShowDebug = null,
+                        nickname = currentNickname,
+                        onNicknameChange = { newNickname ->
+                            chatViewModel.setNickname(newNickname)
+                        }
+                    )
+                }
             }
         }
     }
@@ -415,6 +449,14 @@ class MainActivity : OrientationAwareActivity() {
                 mainViewModel.updateOnboardingState(OnboardingState.PERMISSION_EXPLANATION)
             }
         }
+    }
+    
+    /**
+     * Handle when permissions are granted - move to nickname setup
+     */
+    private fun proceedToNicknameSetup() {
+        Log.d("MainActivity", "Permissions granted, proceeding to nickname setup")
+        mainViewModel.updateOnboardingState(OnboardingState.SET_NICKNAME)
     }
     
     /**

@@ -234,8 +234,11 @@ class OnboardingCoordinator(
     private fun completeOnboarding() {
         Log.d(TAG, "Completing onboarding process")
         
-        // Mark onboarding as complete
-        permissionManager.markOnboardingComplete()
+        // Only mark onboarding as complete for existing users
+        // First-time users will have it marked after nickname setup
+        if (!permissionManager.isFirstTimeLaunch()) {
+            permissionManager.markOnboardingComplete()
+        }
         
         // Log final permission status
         permissionManager.logPermissionStatus()
