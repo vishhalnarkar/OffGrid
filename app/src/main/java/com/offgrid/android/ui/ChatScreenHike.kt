@@ -176,7 +176,7 @@ private fun HikeStyleHeader(
     onSettingsClick: () -> Unit = {}
 ) {
     val isConnected = connectedPeers.isNotEmpty()
-    val indicatorColor = if (isConnected) Color(0xFF81C784) else Color(0xFF6B7280) // Light green when connected, greyish blue when not
+    val indicatorColor = if (isConnected) Color(0xFF81C784) else Color(0xFFB0B0B0) // Light green when connected, light grey when not
     
     Box(
         modifier = Modifier

@@ -51,7 +51,6 @@ import com.offgrid.android.onboarding.OnboardingState
 import com.offgrid.android.onboarding.PermissionExplanationScreen
 import com.offgrid.android.onboarding.PermissionManager
 import com.offgrid.android.onboarding.SetNicknameScreen
-import com.offgrid.android.ui.ChatScreen
 import com.offgrid.android.ui.ChatViewModel
 import com.offgrid.android.ui.HikeChatScreen
 import com.offgrid.android.ui.AboutSheet

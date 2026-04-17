@@ -7,13 +7,15 @@
 
 # OffGrid for Android
 
-A secure, decentralized, peer-to-peer messaging app that works over Bluetooth mesh networks. No internet required for mesh chats, no servers, no phone numbers - just pure encrypted communication. OffGrid also supports geohash channels, which use an internet connection to connect you with others in your geographic area.
+A secure, decentralized, peer-to-peer messaging app that works over Bluetooth mesh networks. No internet required for mesh chats, no servers, no phone numbers - just pure encrypted communication. OffGrid also supports Nostr integration and geohash-based location channels for connecting with others in your geographic area.
 
-This is the **Android port** of the original [OffGrid iOS app](https://github.com/jackjackbits/OffGrid), maintaining 100% protocol compatibility for cross-platform communication.
+This is the **Android port** of the original [OffGrid iOS app](https://github.com/jackjackbits/OffGrid), maintaining protocol compatibility for cross-platform communication.
 
 ## Install OffGrid
 
 You can download the latest version of OffGrid for Android from the [GitHub Releases page](https://github.com/permissionlesstech/OffGrid-android/releases).
+
+**Current Version:** 1.7.2
 
 **Instructions:**
 
@@ -27,27 +29,42 @@ This project is released into the public domain. See the [LICENSE](LICENSE.md) f
 
 ## Features
 
-- **✅ Cross-Platform Compatible**: Full protocol compatibility with iOS OffGrid
+### Core Messaging
+- **✅ Cross-Platform Compatible**: Protocol compatibility with iOS OffGrid
 - **✅ Decentralized Mesh Network**: Automatic peer discovery and multi-hop message relay over Bluetooth LE
 - **✅ End-to-End Encryption**: X25519 key exchange + AES-256-GCM for private messages
 - **✅ Channel-Based Chats**: Topic-based group messaging with optional password protection
 - **✅ Store & Forward**: Messages cached for offline peers and delivered when they reconnect
 - **✅ Privacy First**: No accounts, no phone numbers, no persistent identifiers
-- **✅ IRC-Style Commands**: Familiar `/join`, `/msg`, `/who` style interface
+
+### User Experience
+- **✅ Modern UI**: Hike-inspired chat interface with futuristic neon aesthetics
+- **✅ Material Design 3**: Clean, intuitive interface with Jetpack Compose
+- **✅ Dark Theme**: Terminal-inspired dark theme optimized for readability
+- **✅ Connection Status**: Visual indicator showing mesh network connectivity (green = connected, grey = disconnected)
+- **✅ User Settings**: Easy username customization in settings
 - **✅ Message Retention**: Optional channel-wide message saving controlled by channel owners
 - **✅ Emergency Wipe**: Triple-tap logo to instantly clear all data
-- **✅ Modern Android UI**: Jetpack Compose with Material Design 3
-- **✅ Dark/Light Themes**: Terminal-inspired aesthetic matching iOS version
+
+### Advanced Features
+- **✅ IRC-Style Commands**: Familiar `/join`, `/msg`, `/who` style interface
+- **✅ Nostr Integration**: Connect to Nostr relays for extended reach
+- **✅ Geohash Channels**: Location-based channels for connecting with nearby users
+- **✅ Voice Messages**: Send and receive voice notes over the mesh
+- **✅ File Sharing**: Share images and files with peers
+- **✅ @ Mentions**: Mention users with autocomplete support
 - **✅ Battery Optimization**: Adaptive scanning and power management
+- **✅ Proof of Work**: Optional PoW for spam prevention on Nostr channels
 
 ## Android Setup
 
 ### Prerequisites
 
-- **Android Studio**: Arctic Fox (2020.3.1) or newer
+- **Android Studio**: Hedgehog (2023.1.1) or newer
 - **Android SDK**: API level 26 (Android 8.0) or higher
-- **Kotlin**: 1.8.0 or newer
-- **Gradle**: 7.0 or newer
+- **Kotlin**: 2.2.0
+- **Gradle**: 8.0 or newer
+- **JDK**: 17 or newer
 
 ### Build Instructions
 
@@ -90,24 +107,46 @@ For production releases:
 ./gradlew assembleRelease
 ```
 
+The build system automatically creates optimized APK splits for different architectures (arm64-v8a, x86_64, armeabi-v7a, x86).
+
 ## Android-Specific Requirements
 
 ### Permissions
 
-The app requires the following permissions (automatically requested):
+The app requires the following permissions (automatically requested during onboarding):
 
-- **Bluetooth**: Core BLE functionality
-- **Location**: Required for BLE scanning on Android
-- **Network**: Expand your mesh through public internet relays
+- **Bluetooth**: Core BLE functionality for mesh networking
+- **Location**: Required for BLE scanning on Android (system requirement)
 - **Notifications**: Message alerts and background updates
+- **Camera**: For QR code scanning (verification features)
+- **Microphone**: For voice message recording
+- **Storage**: For file and image sharing
 
 ### Hardware Requirements
 
 - **Bluetooth LE (BLE)**: Required for mesh networking
 - **Android 8.0+**: API level 26 minimum
 - **RAM**: 2GB recommended for optimal performance
+- **Storage**: 100MB minimum for app and cached messages
 
 ## Usage
+
+### Getting Started
+
+1. **Install the app** on your Android device (requires Android 8.0+)
+2. **Complete onboarding** - grant required permissions (Bluetooth, Location, etc.)
+3. **Set your username** in settings or use the auto-generated one
+4. **Launch OffGrid** - it will auto-start mesh networking
+5. **Connect automatically** to nearby iOS and Android OffGrid users
+6. **Join a channel** with `/j #general` or start chatting in public
+7. **Messages relay** through the mesh network to reach distant peers
+
+### User Interface
+
+- **Connection Indicator**: Green dot = connected to mesh, Grey dot = disconnected
+- **Peer Count**: Shows number of connected peers in the app bar
+- **Settings**: Tap the settings icon to customize your username and preferences
+- **Mesh Visualization**: View your mesh network topology in the About/Settings screen
 
 ### Basic Commands
 
@@ -123,24 +162,12 @@ The app requires the following permissions (automatically requested):
 - `/transfer @name` - Transfer channel ownership
 - `/save` - Toggle message retention for channel (owner only)
 
-### Getting Started
+### Media Features
 
-1. **Install the app** on your Android device (requires Android 8.0+)
-2. **Grant permissions** for Bluetooth and location when prompted
-3. **Launch OffGrid** - it will auto-start mesh networking
-4. **Set your nickname** or use the auto-generated one
-5. **Connect automatically** to nearby iOS and Android OffGrid users
-6. **Join a channel** with `/j #general` or start chatting in public
-7. **Messages relay** through the mesh network to reach distant peers
-
-### Android UI Features
-
-- **Jetpack Compose UI**: Modern Material Design 3 interface
-- **Dark/Light Themes**: Terminal-inspired aesthetic matching iOS
-- **Haptic Feedback**: Vibrations for interactions and notifications
-- **Adaptive Layout**: Optimized for various Android screen sizes
-- **Message Status**: Real-time delivery and read receipts
-- **RSSI Indicators**: Signal strength colors for each peer
+- **Voice Messages**: Tap and hold the microphone button to record
+- **Image Sharing**: Tap the image button to select and send photos
+- **File Sharing**: Share documents and files with peers
+- **Voice Visualizer**: Real-time waveform display during recording
 
 ### Channel Features
 
@@ -148,6 +175,8 @@ The app requires the following permissions (automatically requested):
 - **Message Retention**: Owners can enable mandatory message saving with `/save`
 - **@ Mentions**: Use `@nickname` to mention users (with autocomplete)
 - **Ownership Transfer**: Pass control to trusted users with `/transfer`
+- **Geohash Channels**: Location-based channels for connecting with nearby users
+- **Nostr Integration**: Connect channels to Nostr relays for extended reach
 
 ## Security & Privacy
 
@@ -187,64 +216,64 @@ The app requires the following permissions (automatically requested):
 
 ## Technical Architecture
 
+### Core Components
+
+1. **MainActivity.kt**: Main activity with onboarding flow and permission management
+2. **ChatViewModel.kt**: MVVM pattern managing app state and business logic
+3. **ChatScreenHike.kt**: Modern Hike-inspired UI with neon aesthetics
+4. **BluetoothMeshService.kt**: Core BLE mesh networking (central + peripheral roles)
+5. **EncryptionService.kt**: Cryptographic operations using BouncyCastle
+6. **NoiseChannelEncryption.kt**: Noise Protocol Framework implementation
+7. **MessageHandler.kt**: Message processing and routing logic
+8. **VoiceRecorder.kt**: Voice message recording and playback
+9. **MediaSendingManager.kt**: File and image sharing functionality
+10. **GeohashViewModel.kt**: Location-based channel management
+
+### UI Architecture
+
+- **Jetpack Compose**: Modern declarative UI framework
+- **Material Design 3**: Latest Material Design components
+- **MVVM Pattern**: Clean separation of concerns
+- **StateFlow**: Reactive state management
+- **Coroutines**: Asynchronous operations
+
 ### Binary Protocol
 OffGrid uses an efficient binary protocol optimized for Bluetooth LE:
 - Compact packet format with 1-byte type field
 - TTL-based message routing (max 7 hops)
-- Automatic fragmentation for large messages
+- Automatic fragmentation for large messages (up to 10MB)
 - Message deduplication via unique IDs
+- Noise Protocol Framework for secure channels
 
 ### Mesh Networking
 - Each device acts as both client and peripheral
 - Automatic peer discovery and connection management
 - Store-and-forward for offline message delivery
 - Adaptive duty cycling for battery optimization
-
-### Android-Specific Optimizations
-- **Coroutine Architecture**: Asynchronous operations for mesh networking
-- **Kotlin Coroutines**: Thread-safe concurrent mesh operations
-- **EncryptedSharedPreferences**: Secure storage for user settings
-- **Lifecycle-Aware**: Proper handling of Android app lifecycle
-- **Battery Optimization**: Foreground service and adaptive scanning
-
-## Android Technical Architecture
-
-### Core Components
-
-1. **OffGridApplication.kt**: Application-level initialization and dependency injection
-2. **MainActivity.kt**: Main activity handling permissions and UI hosting
-3. **ChatViewModel.kt**: MVVM pattern managing app state and business logic
-4. **BluetoothMeshService.kt**: Core BLE mesh networking (central + peripheral roles)
-5. **EncryptionService.kt**: Cryptographic operations using BouncyCastle
-6. **BinaryProtocol.kt**: Binary packet encoding/decoding matching iOS format
-7. **ChatScreen.kt**: Jetpack Compose UI with Material Design 3
+- Multi-hop routing with TTL-based flood control
+- Fragment reassembly for large files and media
 
 ### Dependencies
 
 - **Jetpack Compose**: Modern declarative UI
-- **BouncyCastle**: Cryptographic operations (X25519, Ed25519, AES-GCM)
-- **Nordic BLE Library**: Reliable Bluetooth LE operations
+- **BouncyCastle**: Cryptographic operations (X25519, Ed25519, AES-GCM, Argon2)
 - **Kotlin Coroutines**: Asynchronous programming
-- **LZ4**: Message compression (when enabled)
+- **CameraX**: Camera integration for QR scanning
+- **ML Kit**: Barcode scanning for verification
+- **OkHttp**: HTTP client for Nostr relay connections
+- **Gson**: JSON serialization for Nostr events
 - **EncryptedSharedPreferences**: Secure local storage
-
-### Binary Protocol Compatibility
-
-The Android implementation maintains 100% binary protocol compatibility with iOS:
-- **Header Format**: Identical 13-byte header structure
-- **Packet Types**: Same message types and routing logic
-- **Encryption**: Identical cryptographic algorithms and key exchange
-- **UUIDs**: Same Bluetooth service and characteristic identifiers
-- **Fragmentation**: Compatible message fragmentation for large content
 
 ## Cross-Platform Communication
 
-This Android port enables seamless communication with the original iOS OffGrid app:
+This Android port enables communication with the original iOS OffGrid app:
 
-- **iPhone ↔ Android**: Full bidirectional messaging
+- **iPhone ↔ Android**: Bidirectional messaging over Bluetooth mesh
 - **Mixed Groups**: iOS and Android users in same channels
-- **Feature Parity**: All commands and encryption work across platforms
-- **Protocol Sync**: Identical message format and routing behavior
+- **Feature Parity**: Core commands and encryption work across platforms
+- **Protocol Compatibility**: Compatible message format and routing behavior
+
+**Note**: Some features may be platform-specific (e.g., UI differences, platform-specific optimizations).
 
 **iOS Version**: For iPhone/iPad users, get the original OffGrid at [github.com/jackjackbits/OffGrid](https://github.com/jackjackbits/OffGrid)
 
@@ -253,16 +282,39 @@ This Android port enables seamless communication with the original iOS OffGrid a
 Contributions are welcome! Key areas for enhancement:
 
 1. **Performance**: Battery optimization and connection reliability
-2. **UI/UX**: Additional Material Design 3 features
-3. **Security**: Enhanced cryptographic features
+2. **UI/UX**: Enhanced Material Design 3 features and animations
+3. **Security**: Additional cryptographic features and audits
 4. **Testing**: Unit and integration test coverage
 5. **Documentation**: API documentation and development guides
+6. **Nostr Features**: Enhanced Nostr relay integration
+7. **Media Features**: Additional media types and compression
+
+### Development Guidelines
+
+- Follow Kotlin coding conventions
+- Use Jetpack Compose for all UI components
+- Maintain MVVM architecture pattern
+- Write unit tests for business logic
+- Document public APIs with KDoc comments
+- Test on multiple Android versions and devices
 
 ## Support & Issues
 
-- **Bug Reports**: [Create an issue](../../issues) with device info and logs
+- **Bug Reports**: [Create an issue](../../issues) with device info, Android version, and logs
 - **Feature Requests**: [Start a discussion](https://github.com/orgs/permissionlesstech/discussions)
-- **Security Issues**: Email security concerns privately
+- **Security Issues**: Email security concerns privately to the maintainers
 - **iOS Compatibility**: Cross-reference with [original iOS repo](https://github.com/jackjackbits/OffGrid)
+- **Documentation**: Check the [wiki](../../wiki) for additional guides
+
+### Debugging
+
+To enable debug logging:
+1. Build the app in debug mode
+2. Use `adb logcat` to view logs
+3. Filter by tag: `adb logcat | grep OffGrid`
 
 For iOS-specific issues, please refer to the [original iOS OffGrid repository](https://github.com/jackjackbits/OffGrid).
+
+---
+
+**Built with ❤️ for a decentralized future**
